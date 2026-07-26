@@ -707,7 +707,7 @@ class MainActivity : Activity() {
         val bypassField = EditText(this).apply {
             setText(bypassApps())
             setTextColor(INK)
-            setHintTextColor("com.example.app, ir.snapp.passenger")
+            hint = "com.example.app, ir.snapp.passenger"
             textSize = 14f
             setSingleLine(true)
             gravity = Gravity.CENTER_VERTICAL
