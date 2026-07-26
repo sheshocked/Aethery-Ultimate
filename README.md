@@ -1,3 +1,49 @@
+# Aethery-Ultimate 📱
+
+[![Release](https://img.shields.io/github/v/release/sheshocked/Aethery-Ultimate?sort=semver)](https://github.com/sheshocked/Aethery-Ultimate/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
+![Kotlin](https://img.shields.io/badge/Kotlin-1.9-0095D5?logo=kotlin&logoColor=white)
+![Rust](https://img.shields.io/badge/Rust-stable-000000?logo=rust&logoColor=white)
+
+One-click mobile Android GUI and VPN Service client for the **Aether** censorship-circumvention tunnel.
+
+<p align="center">
+  <img src="aether_logo.svg" alt="Aether-GUI / Aethery — Visual Logo" width="220">
+</p>
+
+Aethery-Ultimate turns Aether into an Android-first VPN experience. It provides a native interface, Android VPN/TUN bridge, connection state, custom MTU tuning, custom DNS servers, split tunneling application bypass, and release packaging.
+
+---
+
+## 🛠️ Main Mobile Features
+
+1. **Android VpnService Integration (TUN Mode)**: Full routing and tunnel creation directly in Kotlin. Routes all system TCP/UDP traffic securely.
+2. **Custom MTU Tuner**: Exposes MTU configuration (e.g. 1280-1360) in Settings to bypass UDP packet fragmentation and drops on mobile networks.
+3. **Custom DNS Servers**: Allows configuring custom DNS addresses (e.g., Shecan for sanction bypass, Cloudflare, 403.online) directly in the VPN tunnel.
+4. **Split Tunneling (App Bypass)**: Exposes a setting to disallow specific app packages (like Iranian banking apps, Snapp, Divar) from passing through the VPN tunnel, preserving local routing and bank security.
+5. **Scrollable Settings UI**: Upgraded the settings layout using an Android `ScrollView` to elegantly house the new option inputs.
+
+---
+
+## 🚀 How to Build
+
+### Requirements
+- Android SDK 36
+- Android NDK `26.3.11579264`
+- CMake `3.22.1`
+- JDK 17
+- Rust stable with Android targets
+- `cargo-ndk`
+
+### Build Command
+Run the gradle wrapper to compile:
+```bash
+./gradlew :app:assembleRelease
+```
+
+---
+
 ==================================================================================================
                       AETHER-GUI ULTIMATE OPTIMIZATION & DESIGN BLUEPRINT
                   Comprehensive Technical Spec & Architectural Roadmap (V3.0)

@@ -1,0 +1,105 @@
+name: Build and Release Android APKs
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build Aethery APKs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+
+      - name: Install Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build Rust Core (arm64-v8a)
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+          RUSTFLAGS: "-C link-arg=-Wl,-soname,libaether.so -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
+        run: |
+          cd core/aether
+          cargo ndk -t arm64-v8a --platform 24 build --release --lib
+
+      - name: Build Rust Core (armeabi-v7a)
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+          RUSTFLAGS: "-C link-arg=-Wl,-soname,libaether.so -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
+        run: |
+          cd core/aether
+          cargo ndk -t armeabi-v7a --platform 24 build --release --lib
+
+      - name: Copy libaether.so to jniLibs
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp core/aether/target/aarch64-linux-android/release/libaether.so app/src/main/jniLibs/arm64-v8a/libaether.so
+          mkdir -p app/src/main/jniLibs/armeabi-v7a
+          cp core/aether/target/armv7-linux-androideabi/release/libaether.so app/src/main/jniLibs/armeabi-v7a/libaether.so
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build Release APKs
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Rename and Prepare APKs
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk dist/Aethery-arm64-v8a-release.apk 2>/dev/null || cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Aethery-release.apk 2>/dev/null || cp app/build/outputs/apk/release/*.apk dist/ || true
+          # Find all apk files and copy them
+          find app/build/outputs/apk/ -name "*.apk" -exec cp {} dist/ \;
+          ls -la dist/
+
+      - name: Generate Checksums
+        run: |
+          cd dist
+          sha256sum *.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.apk
+            dist/SHA256SUMS.txt
+          draft: false
+          prerelease: false
+          generate_release_notes: true
