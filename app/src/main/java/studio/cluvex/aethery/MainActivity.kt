@@ -1671,6 +1671,7 @@ private class ConnectionControl(context: Context) : View(context) {
         super.onDetachedFromWindow()
     }
 
+    private fun dp(value: Float): Int = (value * density).roundToInt()
     private fun dp(value: Int): Int = (value * density).roundToInt()
 
     private data class Palette(val container: Int, val accent: Int)
