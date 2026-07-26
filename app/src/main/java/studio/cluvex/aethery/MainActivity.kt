@@ -548,8 +548,8 @@ class MainActivity : Activity() {
         setContentView(mainRoot)
     }
 
-    private fun mtu(): Int = getSharedPreferences(SETTINGS, MODE_PRIVATE).getInt("pref_mtu", 1280)
-    private fun dns(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_dns", "1.1.1.1") ?: "1.1.1.1"
+    private fun mtu(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_mtu_str", "auto") ?: "auto"
+    private fun dns(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_dns_str", "auto") ?: "auto"
     private fun bypassApps(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_bypass_apps", "") ?: ""
     private fun scanMode(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_scan_mode", "balanced") ?: "balanced"
     private fun obfProfile(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_obf_profile", "firewall") ?: "firewall"
@@ -585,12 +585,15 @@ class MainActivity : Activity() {
     }
 
     private fun applyMtu(field: EditText) {
-        val valMtu = field.text.toString().toIntOrNull()
-        if (valMtu == null || valMtu !in 1200..1500) {
-            field.error = "Enter MTU between 1200 and 1500"
-            return
+        val text = field.text.toString().trim()
+        if (text.lowercase() != "auto") {
+            val valMtu = text.toIntOrNull()
+            if (valMtu == null || valMtu !in 1200..1500) {
+                field.error = "Enter auto or MTU between 1200 and 1500"
+                return
+            }
         }
-        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putInt("pref_mtu", valMtu).apply()
+        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_mtu_str", text).apply()
         field.error = null
         field.clearFocus()
     }
@@ -601,7 +604,7 @@ class MainActivity : Activity() {
             field.error = "Enter valid DNS address"
             return
         }
-        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_dns", valDns).apply()
+        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_dns_str", valDns).apply()
         field.error = null
         field.clearFocus()
     }
@@ -1305,30 +1308,106 @@ private class ChevronView(context: Context, private val color: Int) : View(conte
 private class ConnectionControl(context: Context) : View(context) {
     enum class State { DISCONNECTED, CONNECTING, CONNECTED, FAILED }
 
+    private var containerColor: Int = PRIMARY_CONTAINER
+    private var accentColor: Int = PRIMARY
+    private var glowScale: Float = 0.3f
+    private var rotationAngle: Float = 0f
+    private var strokeAngle: Float = 0f
+    
+    private var colorAnimator: ValueAnimator? = null
+    private var glowAnimator: ValueAnimator? = null
+    private var rotateAnimator: ValueAnimator? = null
+
     var state: State = State.DISCONNECTED
         set(value) {
+            if (field == value) return
             field = value
             contentDescription = when (value) {
                 State.DISCONNECTED, State.FAILED -> "Connect"
                 State.CONNECTING -> "Connecting"
                 State.CONNECTED -> "Disconnect"
             }
-            if (value == State.CONNECTING) startConnectingAnimation() else stopConnectingAnimation()
-            invalidate()
+            animateStateTransition(value)
         }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val arcBounds = RectF()
     private val density = resources.displayMetrics.density
-    private var progress = 0f
-    private var pulse = 0f
-    private var connectingAnimator: ValueAnimator? = null
 
     init {
         isClickable = true
         isFocusable = true
         contentDescription = "Connect"
         setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+        startGlowAnimation()
+    }
+
+    private fun animateStateTransition(targetState: State) {
+        val targetPalette = when (targetState) {
+            State.DISCONNECTED -> Palette(PRIMARY_CONTAINER, PRIMARY)
+            State.CONNECTING -> Palette(PRIMARY_CONTAINER, PRIMARY)
+            State.CONNECTED -> Palette(CONNECTED_CONTAINER, CONNECTED)
+            State.FAILED -> Palette(ERROR_CONTAINER, ERROR)
+        }
+
+        colorAnimator?.cancel()
+        val evaluator = android.animation.ArgbEvaluator()
+        
+        val startContainer = containerColor
+        val startAccent = accentColor
+        
+        colorAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 350
+            addUpdateListener {
+                val fraction = it.animatedValue as Float
+                containerColor = evaluator.evaluate(fraction, startContainer, targetPalette.container) as Int
+                accentColor = evaluator.evaluate(fraction, startAccent, targetPalette.accent) as Int
+                invalidate()
+            }
+            start()
+        }
+
+        if (targetState == State.CONNECTING) {
+            startRotationAnimation()
+        } else {
+            stopRotationAnimation()
+        }
+    }
+
+    private fun startGlowAnimation() {
+        glowAnimator = ValueAnimator.ofFloat(0.3f, 1.0f).apply {
+            duration = 1800
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener {
+                glowScale = it.animatedValue as Float
+                invalidate()
+            }
+            start()
+        }
+    }
+
+    private fun startRotationAnimation() {
+        rotateAnimator?.cancel()
+        rotateAnimator = ValueAnimator.ofFloat(0f, 360f).apply {
+            duration = 1200
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            addUpdateListener {
+                rotationAngle = it.animatedValue as Float
+                strokeAngle = (rotationAngle * 1.5f) % 360f
+                invalidate()
+            }
+            start()
+        }
+    }
+
+    private fun stopRotationAnimation() {
+        rotateAnimator?.cancel()
+        rotateAnimator = null
+        rotationAngle = 0f
+        strokeAngle = 0f
+        invalidate()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -1338,56 +1417,70 @@ private class ConnectionControl(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val size = min(width, height).toFloat()
         val centerX = width / 2f
         val centerY = height / 2f
-        val radius = size / 2f - dp(10) + if (state == State.CONNECTING) dp(3) * pulse else 0f
-        val palette = when (state) {
-            State.DISCONNECTED, State.CONNECTING -> Palette(PRIMARY_CONTAINER, PRIMARY)
-            State.CONNECTED -> Palette(CONNECTED_CONTAINER, CONNECTED)
-            State.FAILED -> Palette(ERROR_CONTAINER, ERROR)
+        val radius = (min(width, height) / 2f) - dp(16)
+
+        // 1. Draw Outer Neon Glow (Incy Style)
+        if (state == State.CONNECTED || state == State.CONNECTING) {
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = dp(4).toFloat()
+            paint.color = accentColor
+            paint.alpha = (50 * (1f - (glowScale - 0.3f) / 0.7f)).toInt().coerceIn(10, 120)
+            val outerRadius = radius + dp(12) * glowScale
+            canvas.drawCircle(centerX, centerY, outerRadius, paint)
         }
 
+        // 2. Draw Main Solid Container
         paint.style = Paint.Style.FILL
-        paint.color = palette.container
-        paint.setShadowLayer(dp(12).toFloat(), 0f, dp(5).toFloat(), 0x44000000)
+        paint.color = containerColor
+        paint.alpha = 255
+        paint.setShadowLayer(dp(18).toFloat(), 0f, dp(6).toFloat(), (accentColor and 0x22FFFFFF))
         canvas.drawCircle(centerX, centerY, radius, paint)
         paint.clearShadowLayer()
 
+        // 3. Draw Accent Border Ring
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = dp(if (state == State.DISCONNECTED) 1 else 2).toFloat()
-        paint.color = palette.accent
+        paint.strokeWidth = dp(2).toFloat()
+        paint.color = accentColor
         canvas.drawCircle(centerX, centerY, radius, paint)
 
-        val iconRadius = dp(25).toFloat()
+        // 4. Draw Center Stylized Power Key (Power icon in the center)
+        val iconRadius = dp(24).toFloat()
         arcBounds.set(centerX - iconRadius, centerY - iconRadius, centerX + iconRadius, centerY + iconRadius)
-        paint.strokeWidth = dp(3).toFloat()
+        paint.strokeWidth = dp(3.5f).toFloat()
         paint.strokeCap = Paint.Cap.ROUND
-        canvas.drawArc(arcBounds, 42f, 276f, false, paint)
-        canvas.drawLine(centerX, centerY - dp(33), centerX, centerY - dp(3), paint)
+        
+        canvas.save()
+        if (state == State.CONNECTING) {
+            canvas.rotate(rotationAngle, centerX, centerY)
+        }
+        
+        canvas.drawArc(arcBounds, 45f, 270f, false, paint)
+        canvas.drawLine(centerX, centerY - dp(30), centerX, centerY - dp(4), paint)
+        canvas.restore()
+        
         paint.strokeCap = Paint.Cap.BUTT
 
+        // 5. Draw Orbiting Loading Arc when connecting
         if (state == State.CONNECTING) {
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = dp(3).toFloat()
-            canvas.drawArc(
-                RectF(
-                    centerX - radius - dp(7),
-                    centerY - radius - dp(7),
-                    centerX + radius + dp(7),
-                    centerY + radius + dp(7),
-                ),
-                progress * 360f,
-                78f + pulse * 42f,
-                false,
-                paint,
+            paint.strokeWidth = dp(3.5f).toFloat()
+            paint.color = accentColor
+            paint.alpha = 255
+            val loadingBounds = RectF(
+                centerX - radius - dp(8),
+                centerY - radius - dp(8),
+                centerX + radius + dp(8),
+                centerY + radius + dp(8)
             )
+            canvas.drawArc(loadingBounds, strokeAngle, 90f, false, paint)
         }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean = when (event.actionMasked) {
         MotionEvent.ACTION_DOWN -> {
-            animate().scaleX(0.97f).scaleY(0.97f).setDuration(90).start()
+            animate().scaleX(0.95f).scaleY(0.95f).setDuration(90).start()
             true
         }
         MotionEvent.ACTION_UP -> {
@@ -1409,29 +1502,10 @@ private class ConnectionControl(context: Context) : View(context) {
     }
 
     override fun onDetachedFromWindow() {
-        stopConnectingAnimation()
+        stopRotationAnimation()
+        glowAnimator?.cancel()
+        colorAnimator?.cancel()
         super.onDetachedFromWindow()
-    }
-
-    private fun startConnectingAnimation() {
-        if (connectingAnimator != null) return
-        connectingAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 1_050
-            repeatCount = ValueAnimator.INFINITE
-            addUpdateListener {
-                progress = it.animatedFraction
-                pulse = if (progress < 0.5f) progress * 2f else (1f - progress) * 2f
-                invalidate()
-            }
-            start()
-        }
-    }
-
-    private fun stopConnectingAnimation() {
-        connectingAnimator?.cancel()
-        connectingAnimator = null
-        progress = 0f
-        pulse = 0f
     }
 
     private fun dp(value: Int): Int = (value * density).roundToInt()

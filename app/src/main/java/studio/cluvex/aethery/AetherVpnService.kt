@@ -55,25 +55,51 @@ class AetherVpnService : VpnService() {
                 val addresses = NativeCore.prepare(config)
                 ConnectionLog.record("Creating Android VPN interface")
                 val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-                val mtu = prefs.getInt("pref_mtu", 1280)
-                val dns = prefs.getString("pref_dns", "1.1.1.1") ?: "1.1.1.1"
+                val mtuStr = prefs.getString("pref_mtu_str", "auto") ?: "auto"
+                val dnsStr = prefs.getString("pref_dns_str", "auto") ?: "auto"
                 val bypassApps = prefs.getString("pref_bypass_apps", "") ?: ""
 
-                ConnectionLog.record("DNS: $dns, MTU: $mtu")
+                // Detect network type (Cellular vs Wi-Fi)
+                val connectivityManager = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                val activeNetwork = connectivityManager.activeNetwork
+                val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+                val isCellular = capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true
+
+                val resolvedMtu = if (mtuStr.lowercase() == "auto") {
+                    if (isCellular) 1360 else 1420
+                } else {
+                    mtuStr.toIntOrNull() ?: 1280
+                }
+
+                val resolvedDns = if (dnsStr.lowercase() == "auto") {
+                    if (isCellular) {
+                        "1.1.1.1, 178.22.122.100, 10.202.10.10" // Cloudflare + Shecan + 403.online for GFW bypass
+                    } else {
+                        "1.1.1.1, 8.8.8.8"
+                    }
+                } else {
+                    dnsStr
+                }
+
+                ConnectionLog.record("Network: " + (if (isCellular) "Cellular" else "Wi-Fi/Ethernet") + ", DNS resolved: $resolvedDns, MTU resolved: $resolvedMtu")
 
                 val builder = Builder()
                     .setSession("Aethery")
-                    .setMtu(mtu)
+                    .setMtu(resolvedMtu)
                     .addAddress(addresses.ipv4, 32)
                     .addAddress(addresses.ipv6, 128)
                     .addRoute("0.0.0.0", 0)
                     .addRoute("::", 0)
 
                 // Add configured DNS
-                dns.split(",").forEach {
+                resolvedDns.split(",").forEach {
                     val d = it.trim()
                     if (d.isNotEmpty()) {
-                        builder.addDnsServer(d)
+                        try {
+                            builder.addDnsServer(d)
+                        } catch (e: Exception) {
+                            Log.w("AetheryVpn", "Invalid DNS address skipped: $d", e)
+                        }
                     }
                 }
 
