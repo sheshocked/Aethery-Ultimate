@@ -543,6 +543,38 @@ class MainActivity : Activity() {
     private fun mtu(): Int = getSharedPreferences(SETTINGS, MODE_PRIVATE).getInt("pref_mtu", 1280)
     private fun dns(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_dns", "1.1.1.1") ?: "1.1.1.1"
     private fun bypassApps(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_bypass_apps", "") ?: ""
+    private fun scanMode(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_scan_mode", "balanced") ?: "balanced"
+    private fun obfProfile(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_obf_profile", "firewall") ?: "firewall"
+    private fun forcedPeer(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_forced_peer", "") ?: ""
+
+    private fun applyScanMode(field: EditText) {
+        val mode = field.text.toString().trim().lowercase()
+        if (mode !in listOf("turbo", "balanced", "thorough", "stealth", "ironclad")) {
+            field.error = "Enter turbo, balanced, thorough, stealth, or ironclad"
+            return
+        }
+        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_scan_mode", mode).apply()
+        field.error = null
+        field.clearFocus()
+    }
+
+    private fun applyObfProfile(field: EditText) {
+        val obf = field.text.toString().trim().lowercase()
+        if (obf !in listOf("firewall", "gfw", "off")) {
+            field.error = "Enter firewall, gfw, or off"
+            return
+        }
+        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_obf_profile", obf).apply()
+        field.error = null
+        field.clearFocus()
+    }
+
+    private fun applyForcedPeer(field: EditText) {
+        val peer = field.text.toString().trim()
+        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_forced_peer", peer).apply()
+        field.error = null
+        field.clearFocus()
+    }
 
     private fun applyMtu(field: EditText) {
         val valMtu = field.text.toString().toIntOrNull()
@@ -730,6 +762,99 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply { topMargin = dp(6) })
 
+        // --- 6. SCAN MODE SELECTOR ---
+        content.addView(label("TUNNEL SCAN MODE", 12f, MUTED).apply { letterSpacing = 0.1f }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(28) })
+        val scanModeField = EditText(this).apply {
+            setText(scanMode())
+            setTextColor(INK)
+            setHintTextColor("turbo, balanced, thorough, stealth, ironclad")
+            textSize = 16f
+            setSingleLine(true)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), 0, dp(12), 0)
+            background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
+        }
+        content.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(scanModeField, LinearLayout.LayoutParams(0, dp(52), 1f))
+            addView(createSettingsButton("Apply") { applyScanMode(scanModeField) }, LinearLayout.LayoutParams(
+                dp(92),
+                dp(52),
+            ).apply { leftMargin = dp(10) })
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(10) })
+        content.addView(label("Options: balanced (default), turbo, thorough, stealth, or ironclad.", 12f, MUTED), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(6) })
+
+        // --- 7. OBFUSCATION PROFILE ---
+        content.addView(label("OBFUSCATION PROFILE", 12f, MUTED).apply { letterSpacing = 0.1f }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(28) })
+        val obfField = EditText(this).apply {
+            setText(obfProfile())
+            setTextColor(INK)
+            setHintTextColor("firewall, gfw, off")
+            textSize = 16f
+            setSingleLine(true)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), 0, dp(12), 0)
+            background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
+        }
+        content.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(obfField, LinearLayout.LayoutParams(0, dp(52), 1f))
+            addView(createSettingsButton("Apply") { applyObfProfile(obfField) }, LinearLayout.LayoutParams(
+                dp(92),
+                dp(52),
+            ).apply { leftMargin = dp(10) })
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(10) })
+        content.addView(label("Configure padding and packet size obfuscation (firewall, gfw, or off).", 12f, MUTED), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(6) })
+
+        // --- 8. MULTI-LOCATION / FORCED ANYCAST ENDPOINT ---
+        content.addView(label("FORCED ANYCAST ENDPOINT (IP:PORT)", 12f, MUTED).apply { letterSpacing = 0.1f }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(28) })
+        val peerField = EditText(this).apply {
+            setText(forcedPeer())
+            setTextColor(INK)
+            setHintTextColor("e.g. 162.159.192.1:2408")
+            textSize = 16f
+            setSingleLine(true)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), 0, dp(12), 0)
+            background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
+        }
+        content.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(peerField, LinearLayout.LayoutParams(0, dp(52), 1f))
+            addView(createSettingsButton("Apply") { applyForcedPeer(peerField) }, LinearLayout.LayoutParams(
+                dp(92),
+                dp(52),
+            ).apply { leftMargin = dp(10) })
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(10) })
+        content.addView(label("Forces the connection to a specific Cloudflare IP:Port, bypassing Anycast scanning (e.g. 162.159.193.10:2408). Leave blank for auto-scanning.", 12f, MUTED), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(6) })
+
         scrollView.addView(content)
         page.addView(scrollView, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -882,11 +1007,22 @@ class MainActivity : Activity() {
     }
 
     private fun configJson(): String = org.json.JSONObject().apply {
+        val prefs = getSharedPreferences(SETTINGS, MODE_PRIVATE)
         put("config_path", File(filesDir, "aether.toml").absolutePath)
         put("protocol", selectedProtocol.coreName)
         put("listen", "127.0.0.1:${socksPort()}")
-        put("scan_mode", "balanced")
+        put("scan_mode", prefs.getString("pref_scan_mode", "balanced") ?: "balanced")
         put("ip_scan", defaultScan().coreName)
+        
+        val forcedPeer = prefs.getString("pref_forced_peer", "") ?: ""
+        if (forcedPeer.isNotEmpty()) {
+            put("forced_peer", forcedPeer)
+        }
+        
+        val obfProfile = prefs.getString("pref_obf_profile", "firewall") ?: "firewall"
+        if (obfProfile != "off") {
+            put("obfuscation_profile", obfProfile)
+        }
     }.toString()
 
     private fun renderStatus() {
