@@ -1,91 +1,122 @@
-# Aethery-Ultimate 📱
+# 🚀 Aethery Ultimate
 
-[![Release](https://img.shields.io/github/v/release/sheshocked/Aethery-Ultimate?sort=semver)](https://github.com/sheshocked/Aethery-Ultimate/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Platform](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)
-![Kotlin](https://img.shields.io/badge/Kotlin-1.9-0095D5?logo=kotlin&logoColor=white)
-![Rust](https://img.shields.io/badge/Rust-stable-000000?logo=rust&logoColor=white)
-
-Aethery-Ultimate is a native, open-source Android VPN application built around the **Aether** censorship-circumvention core. It wraps the terminal-based Aether tunnel in a clean, material-design mobile interface, letting you establish high-performance bypass tunnels on your phone with a single click.
-
-<p align="center">
-  <img src="aether_logo.svg" alt="Aethery Logo" width="180">
-</p>
+**کلاینت اندروید برای پروتکل Aether** — سریع، امن، و سازگار با فیلترینگ ایران  
+بدون نیاز به سرور، بدون اکانت، فقط یک دکمه بزن و وصل شو
 
 ---
 
-## 🌟 Key Features
+## ✨ چرا Aethery Ultimate؟
 
-- **Native VpnService (TUN Mode)**: Full system-wide routing of all TCP/UDP traffic through the Aether tunnel.
-- **Custom MTU Tuning**: Adjust the Maximum Transmission Unit (MTU) (e.g. 1280 to 1360 bytes) directly in Settings to mitigate packet drop and bypass UDP throttling on networks like MCI and Irancell.
-- **Custom Tunnel DNS**: Configure secure or sanction-bypassing DNS servers (e.g., Presets for Shecan, 403.online, Cloudflare).
-- **Split Tunneling (App Bypass)**: Exclude specific installed applications (such as local banking apps, messengers, or Snapp) from the VPN tunnel to preserve local routing and secure access.
-- **Micro-telemetry**: Live connection log viewer and diagnostic statuses built into the main screen.
+| قابلیت | چی برات می‌کنه؟ |
+|----------|----------------|
+| **یک‌دستگاه وصل شدن** | برنامه رو باز کن، دایره وسط رو بزن، تموم |
+| **تشخیص خودکار شبکه** | دیتا موبایل → MTU 1360 + DNS ضدتحریم / وای‌فای → MTU 1420 + DNS معمولی |
+| **۱۵+ لوکیشن کشور** | آلمان 🇩🇪، هلند 🇳🇱، فرانسه 🇫🇷، UK 🇬🇧، سوئیس 🇨🇭، امریکا 🇺🇸، کانادا 🇨🇦، برزیل 🇧🇷، سنگاپور 🇸🇬، ژاپن 🇯🇵، هاستینگ 🇭🇰، استرالیا 🇦🇺، ترکیه 🇹🇷، امارات 🇦🇪 + اسکن خودکار 🌐 |
+| **اپ‌های بانکی کار می‌کنن** | بای‌پس پیش‌فرض برای بانک‌های ایرانی، اسنپ، و... |
+| **اشتراک‌گذاری کانفیگ با لینک** | `aether://connect?protocol=masque&mtu=1360&forced_peer=162.159.193.1:2408&obf=gfw&scan=turbo` → کلیک کن → برنامه باز میشه → تنظیمات لود میشه → وصل شو |
+| **انیمیشن‌های نئونی روان** | دکمه وسط حباب می‌زنه، دورش نور می‌درخشه، رنگ‌ها نرم عوض میشن (سبک Incy) |
+| **چند پروتکل** | MASQUE (پیش‌فرض، سریع‌ترین) / WireGuard / WARP-on-WARP |
+| **صفر کانفیگ** | از جعبه کار می‌کنه، هیچ تنظیم پیچیده‌ای نداره |
 
 ---
 
-## ⚙️ How It Works
+## 📥 دانلود و نصب
 
-Aethery is designed as a native Android layer communicating with the prebuilt Aether core through JNI:
+### نسخه ۶۴ بیت (پیشنهادی - همه گوشی‌های جدید)
+[**⬇️ Aethery-arm64-v8a-release.apk (۱۰.۸ MB)**](https://github.com/sheshocked/Aethery-Ultimate/releases/download/v2.0.0/Aethery-arm64-v8a-release.apk)
 
-```text
-MainActivity (UI Controls)
-    │ Configuration & UI states
-    ▼
-AetherVpnService (Android VpnService / TUN)
-    │
-    ▼
-NativeCore (JNI Bridge / C++) ── libaether.so (Rust Core)
+### نسخه ۳۲ بیت (گوشی‌های قدیمی)
+[**⬇️ app-armeabi-v7a-release-unsigned.apk (۷.۹ MB)**](https://github.com/sheshocked/Aethery-Ultimate/releases/download/v2.0.0/app-armeabi-v7a-release-unsigned.apk)
+
+> **نکته:** فایل‌های `unsigned` هستن. برای نصب: تنظیمات → امنیت → نصب از ناشناس رو فعال کن.
+
+---
+
+## 🚀 شروع سریع (۳ قدم)
+
+```
+1️⃣ APK رو دانلود و نصب کن
+2️⃣ برنامه رو باز کن، اجازه VPN رو بده (سیستم‌عامل می‌خواد)
+3️⃣ دایره سبز وسط رو بزن → وصل شدی ✅
 ```
 
-1. **MainActivity** initiates the connection and passes configuration parameters as a JSON string to `AetherVpnService`.
-2. **AetherVpnService** requests VPN permissions, allocates the virtual TUN interface, sets the MTU/DNS, and protects the core sockets from looping.
-3. The **Native JNI Bridge** receives the file descriptor and handles route discovery, cryptographic handshakes (MASQUE, WireGuard, nested gool), and traffic obfuscation via Aether.
+---
+
+## 🌍 انتخاب لوکیشن (اختیاری - برای ظاهر شدن در کشور خاص)
+
+روی دکمه **LOCATION** در صفحه اصلی بزن:
+
+| قاره | لوکیشن‌ها |
+|------|-----------|
+| **اروپا** | آلمان 🇩🇪 • هلند 🇳🇱 • فرانسه 🇫🇷 • UK 🇬🇧 • سوئیس 🇨🇭 |
+| **آمریکا** | امریکا شرق 🇺🇸 • امریکا غرب 🇺🇸 • کانادا 🇨🇦 • برزیل 🇧🇷 |
+| **آسیه-پاسیفیک** | سنگاپور 🇸🇬 • ژاپن 🇯🇵 • هنگ‌کنگ 🇭🇰 • استرالیا 🇦🇺 |
+| **خاورمیانه** | ترکیه 🇹🇷 • امارات 🇦🇪 |
+| **خودکار** | اسکن خودکار 🌐 — سریع‌ترین نود رو پیدا می‌کنه |
+
+هر کدوم رو بزنی، آدرس Anycast کلادفلر اون کشور به‌صورت خودکار ست میشه.
 
 ---
 
-## 🛠️ How to Build Local APKs
+## ⚙️ تنظیمات پیشرفته (اگه لازم داشتی)
 
-### Prerequisites
-Ensure you have the following installed on your machine:
-- Android SDK 36
-- Android NDK `26.3.11579264`
-- CMake `3.22.1`
-- JDK 17
-- Rust stable with Android targets (`aarch64-linux-android` and `armv7-linux-androideabi`)
-- `cargo-ndk`
+دکمه ⚙️ (تنظیمات) رو بزن:
 
-### Build Steps
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/sheshocked/Aethery-Ultimate.git
-   cd Aethery-Ultimate
-   ```
-
-2. **Build the Rust core** for Android architectures:
-   ```bash
-   cd core/aether
-   cargo ndk -t arm64-v8a --platform 24 build --release --lib
-   cargo ndk -t armeabi-v7a --platform 24 build --release --lib
-   cd ../..
-   ```
-
-3. **Copy the compiled library binaries**:
-   ```bash
-   mkdir -p app/src/main/jniLibs/arm64-v8a jniLibs/armeabi-v7a
-   cp core/aether/target/aarch64-linux-android/release/libaether.so app/src/main/jniLibs/arm64-v8a/libaether.so
-   cp core/aether/target/armv7-linux-androideabi/release/libaether.so app/src/main/jniLibs/armeabi-v7a/libaether.so
-   ```
-
-4. **Compile the release APK**:
-   ```bash
-   ./gradlew assembleRelease
-   ```
-
-The compiled APKs will be located under `app/build/outputs/apk/release/`.
+| تنظیم | پیش‌فرض | چه زمانی عوضش کنی؟ |
+|---------|---------|-------------------|
+| **پروتکل** | MASQUE | فقط اگه MASQUE بلاک شد → WireGuard یا WARP-on-WARP |
+| **MTU** | `auto` | دستی فقط اگه می‌دونی چیکار می‌کنی (۱۲۰۰-۱۵۰۰) |
+| **DNS** | `auto` | خودکار: دیتا → ضدتحریم / وای‌فای → معمولی |
+| **حالت اسکن** | `balanced` | `turbo` سریع‌تره، `thorough` کامل‌تره |
+| **ماسک کردن پکت** | `firewall` | `gfw` برای فایروال‌های شدید، `off` برای خاموش |
+| **بای‌پس اپلیکیشن** | پیش‌فرض بانک‌ها | اپ‌های دیگه اضافه کن با `package name` (مثل `ir.snapp.passenger`) |
 
 ---
 
-## 📜 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 🔗 اشتراک‌گذاری کانفیگ (Deep Link)
+
+یه لینک بساز و بفرست به دوستان:
+
+```
+aether://connect?protocol=masque&mtu=1360&dns=1.1.1.1&forced_peer=162.159.193.1:2408&obf=gfw&scan=turbo
+```
+
+یا با Base64 (برای کانفیگ‌های پیچیده):
+```
+aether://connect?config=eyJwcm90b2NvbCI6Im1hc3F1ZSIsIm10dSI6MTM2MH0=
+```
+
+**راه‌اندازی:** لینک رو در تلگرام/واتساپ بفرست → طرف مقابل کلیک کنه → Aethery باز میشه → کانفیگ لود میشه → فقط دکمه وصل رو بزنه.
+
+---
+
+## 🛡️ حریم خصوصی و امنیت
+
+- **صفر لاگ** — هیچ حسابی، هیچ آنالیتی، هیچ تلیمتری
+- **کد باز** — [کد منبع رو ببین](https://github.com/sheshocked/Aethery-Ultimate)
+- **API سیستمی** — از `VpnService` خود اندروید استفاده می‌کنه، روت نیاز نداره
+- **امنیت حافظه** — موتور هسته به Rust نوشته شده (بدون Buffer Overflow، بدون Memory Leak)
+
+---
+
+## 📋 پیش‌نیازها
+
+- اندروید ۷.۰+ (API 24)
+- اجازه VPN (در اولین اجرا درخواست میشه)
+- اینترنت فعال (دیتا یا وای‌فای)
+
+---
+
+## 🐛 گزارش باگ / پیشنهاد
+
+[**Issue بساز**](https://github.com/sheshocked/Aethery-Ultimate/issues) یا در تلگرام پیام بده.
+
+---
+
+## 📄 لایسنس
+
+MIT License — آزاد برای استفاده شخصی و تجاری
+
+---
+
+**ساخته شده با ❤️ برای آزادی اینترنت**
