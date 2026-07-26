@@ -540,12 +540,52 @@ class MainActivity : Activity() {
         setContentView(mainRoot)
     }
 
+    private fun mtu(): Int = getSharedPreferences(SETTINGS, MODE_PRIVATE).getInt("pref_mtu", 1280)
+    private fun dns(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_dns", "1.1.1.1") ?: "1.1.1.1"
+    private fun bypassApps(): String = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_bypass_apps", "") ?: ""
+
+    private fun applyMtu(field: EditText) {
+        val valMtu = field.text.toString().toIntOrNull()
+        if (valMtu == null || valMtu !in 1200..1500) {
+            field.error = "Enter MTU between 1200 and 1500"
+            return
+        }
+        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putInt("pref_mtu", valMtu).apply()
+        field.error = null
+        field.clearFocus()
+    }
+
+    private fun applyDns(field: EditText) {
+        val valDns = field.text.toString().trim()
+        if (valDns.isEmpty()) {
+            field.error = "Enter valid DNS address"
+            return
+        }
+        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_dns", valDns).apply()
+        field.error = null
+        field.clearFocus()
+    }
+
+    private fun applyBypassApps(field: EditText) {
+        val valApps = field.text.toString().trim()
+        getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_bypass_apps", valApps).apply()
+        field.error = null
+        field.clearFocus()
+    }
+
     private fun openSettingsScreen(animate: Boolean = true) {
         showingSettings = true
         settingsPage?.let(pageHost::removeView)
 
         val page = FrameLayout(this).apply { setBackgroundColor(CANVAS) }
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val scrollView = ScrollView(this).apply { 
+            isVerticalScrollBarEnabled = false 
+        }
+        val content = LinearLayout(this).apply { 
+            orientation = LinearLayout.VERTICAL 
+            setPadding(dp(24), dp(16), dp(24), dp(100)) // extra padding at the bottom for scrolling
+        }
+        
         val header = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             addView(label("‹", 40f, INK).apply {
@@ -558,6 +598,8 @@ class MainActivity : Activity() {
             addView(label("Settings", 22f, INK, TypefaceStyle.MEDIUM))
         }
         content.addView(header)
+        
+        // --- 1. DEFAULT PROTOCOL ---
         content.addView(label("DEFAULT PROTOCOL", 12f, MUTED).apply { letterSpacing = 0.1f })
         Protocol.entries.forEachIndexed { index, protocol ->
             content.addView(createDefaultProtocolOption(protocol), LinearLayout.LayoutParams(
@@ -565,6 +607,8 @@ class MainActivity : Activity() {
                 dp(76),
             ).apply { topMargin = if (index == 0) dp(16) else dp(12) })
         }
+        
+        // --- 2. SOCKS PORT ---
         content.addView(label("CORE SOCKS PORT", 12f, MUTED).apply { letterSpacing = 0.1f }, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -579,7 +623,6 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(18), 0, dp(12), 0)
             background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
-            contentDescription = "Core SOCKS port"
         }
         content.addView(LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -592,51 +635,123 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply { topMargin = dp(10) })
-        content.addView(label("Used by Aether's local SOCKS listener; Android VPN/TUN routes do not use this port.", 12f, MUTED), LinearLayout.LayoutParams(
+        
+        // --- 3. CUSTOM MTU TUNER ---
+        content.addView(label("CUSTOM MTU (TUNNEL SIZE)", 12f, MUTED).apply { letterSpacing = 0.1f }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(28) })
+        val mtuField = EditText(this).apply {
+            setText(mtu().toString())
+            setTextColor(INK)
+            setHintTextColor(MUTED)
+            textSize = 16f
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setSingleLine(true)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), 0, dp(12), 0)
+            background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
+        }
+        content.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(mtuField, LinearLayout.LayoutParams(0, dp(52), 1f))
+            addView(createSettingsButton("Apply") { applyMtu(mtuField) }, LinearLayout.LayoutParams(
+                dp(92),
+                dp(52),
+            ).apply { leftMargin = dp(10) })
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(10) })
+        content.addView(label("Lower values (e.g. 1280-1360) bypass UDP throttling on MCI and Irancell.", 12f, MUTED), LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply { topMargin = dp(6) })
-        page.addView(content, FrameLayout.LayoutParams(
+
+        // --- 4. CUSTOM DNS OVER HTTPS PRESSETS ---
+        content.addView(label("TUNNEL DNS SERVERS", 12f, MUTED).apply { letterSpacing = 0.1f }, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
-        ).apply {
-            leftMargin = dp(24)
-            rightMargin = dp(24)
-            topMargin = dp(16)
-        })
+        ).apply { topMargin = dp(28) })
+        val dnsField = EditText(this).apply {
+            setText(dns())
+            setTextColor(INK)
+            setHintTextColor(MUTED)
+            textSize = 16f
+            setSingleLine(true)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), 0, dp(12), 0)
+            background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
+        }
+        content.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(dnsField, LinearLayout.LayoutParams(0, dp(52), 1f))
+            addView(createSettingsButton("Apply") { applyDns(dnsField) }, LinearLayout.LayoutParams(
+                dp(92),
+                dp(52),
+            ).apply { leftMargin = dp(10) })
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(10) })
+        content.addView(label("Use comma-separated addresses. Presets: 1.1.1.1 (Cloudflare), 178.22.122.100 (Shecan bypass), 10.202.10.10 (403.online).", 12f, MUTED), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(6) })
+
+        // --- 5. SPLIT TUNNELING (APP BYPASS) ---
+        content.addView(label("BYPASS APPLICATION PACKAGES", 12f, MUTED).apply { letterSpacing = 0.1f }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(28) })
+        val bypassField = EditText(this).apply {
+            setText(bypassApps())
+            setTextColor(INK)
+            setHintTextColor("com.example.app, ir.snapp.passenger")
+            textSize = 14f
+            setSingleLine(true)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), 0, dp(12), 0)
+            background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
+        }
+        content.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(bypassField, LinearLayout.LayoutParams(0, dp(52), 1f))
+            addView(createSettingsButton("Apply") { applyBypassApps(bypassField) }, LinearLayout.LayoutParams(
+                dp(92),
+                dp(52),
+            ).apply { leftMargin = dp(10) })
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(10) })
+        content.addView(label("Comma-separated package names of applications to bypass the VPN tunnel (e.g. Iranian banking apps, Snapp, Divar).", 12f, MUTED), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(6) })
+
+        scrollView.addView(content)
+        page.addView(scrollView, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
 
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setBackgroundColor(CANVAS) // Solid background for footer so text doesn't overlap on scroll
+            setPadding(dp(24), dp(12), dp(24), dp(24))
             addView(label("Version ${appVersion()}", 14f, MUTED))
-            addView(createSettingsButton("Check for updates") {
-                openLink("https://github.com/ZethRise/Aethery/releases/latest")
-            }, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(52),
-            ).apply { topMargin = dp(12) })
-            addView(createSettingsButton("Aethery on GitHub", R.drawable.ic_github) {
-                openLink("https://github.com/ZethRise/Aethery")
-            }, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(52),
-            ).apply { topMargin = dp(10) })
         }
         page.addView(footer, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT,
             Gravity.BOTTOM,
-        ).apply {
-            leftMargin = dp(24)
-            rightMargin = dp(24)
-            bottomMargin = dp(24)
-        })
+        ))
+        
         page.setOnApplyWindowInsetsListener { _, insets ->
-            (content.layoutParams as FrameLayout.LayoutParams).apply {
-                topMargin = insets.systemWindowInsetTop + dp(16)
-                content.layoutParams = this
-            }
+            scrollView.setPadding(0, insets.systemWindowInsetTop, 0, insets.systemWindowInsetBottom + dp(80))
             (footer.layoutParams as FrameLayout.LayoutParams).apply {
-                bottomMargin = insets.systemWindowInsetBottom + dp(24)
+                bottomMargin = insets.systemWindowInsetBottom
                 footer.layoutParams = this
             }
             insets

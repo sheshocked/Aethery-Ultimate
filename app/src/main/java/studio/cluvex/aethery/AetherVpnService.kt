@@ -54,15 +54,45 @@ class AetherVpnService : VpnService() {
                 ConnectionLog.record("Preparing ${config.substringAfter("\"protocol\":\"").substringBefore('\"').uppercase()} identity")
                 val addresses = NativeCore.prepare(config)
                 ConnectionLog.record("Creating Android VPN interface")
-                tun = Builder()
+                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+                val mtu = prefs.getInt("pref_mtu", 1280)
+                val dns = prefs.getString("pref_dns", "1.1.1.1") ?: "1.1.1.1"
+                val bypassApps = prefs.getString("pref_bypass_apps", "") ?: ""
+
+                ConnectionLog.record("DNS: $dns, MTU: $mtu")
+
+                val builder = Builder()
                     .setSession("Aethery")
-                    .setMtu(1280)
+                    .setMtu(mtu)
                     .addAddress(addresses.ipv4, 32)
                     .addAddress(addresses.ipv6, 128)
                     .addRoute("0.0.0.0", 0)
                     .addRoute("::", 0)
-                    .addDnsServer("1.1.1.1")
-                    .establish() ?: error("Android could not establish the VPN interface")
+
+                // Add configured DNS
+                dns.split(",").forEach {
+                    val d = it.trim()
+                    if (d.isNotEmpty()) {
+                        builder.addDnsServer(d)
+                    }
+                }
+
+                // Add Allowed/Disallowed Applications (Split Tunneling)
+                if (bypassApps.isNotEmpty()) {
+                    bypassApps.split(",").forEach { pkg ->
+                        val trimmed = pkg.trim()
+                        if (trimmed.isNotEmpty()) {
+                            try {
+                                builder.addDisallowedApplication(trimmed)
+                                ConnectionLog.record("Bypassed application: $trimmed")
+                            } catch (e: Exception) {
+                                Log.w(LOG_TAG, "App not found or could not be disallowed: $trimmed")
+                            }
+                        }
+                    }
+                }
+
+                tun = builder.establish() ?: error("Android could not establish the VPN interface")
 
                 NativeCore.attach(this)
                 ConnectionLog.record("Scanning MASQUE gateways")
