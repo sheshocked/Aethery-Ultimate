@@ -214,6 +214,14 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             dp(56),
         ).apply { topMargin = dp(12) })
+
+        val checkProtocolsBtn = createSettingsButton("🔍 Test protocols on current network") {
+            testNetworkProtocols()
+        }
+        addView(checkProtocolsBtn, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(52),
+        ).apply { topMargin = dp(12) })
     }
 
     private fun createModeSelector(): LinearLayout = LinearLayout(this).apply {
@@ -1195,6 +1203,85 @@ class MainActivity : Activity() {
         const val CONNECTED = 0xFF67D89C.toInt()
         const val ERROR = 0xFFFFB4AB.toInt()
         const val DISABLED_ALPHA = 0.48f
+    }
+
+    private fun testNetworkProtocols() {
+        val dialog = Dialog(this).apply {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            setCanceledOnTouchOutside(true)
+        }
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            background = roundedBackground(SURFACE, 28, SURFACE)
+        }
+        layout.addView(label("Network Protocol Prober", 22f, INK, TypefaceStyle.MEDIUM))
+        layout.addView(label("Testing Cloudflare Anycast endpoints...", 14f, MUTED).apply {
+            setPadding(0, dp(4), 0, dp(20))
+        })
+
+        val resultsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        layout.addView(resultsLayout)
+        
+        dialog.setContentView(layout)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+
+        Thread {
+            val m3Status = probeUdp("162.159.193.1", 443)
+            val m2Status = probeTcp("162.159.193.1", 443)
+            val wgStatus = probeUdp("162.159.193.1", 2408)
+
+            Handler(Looper.getMainLooper()).post {
+                resultsLayout.removeAllViews()
+                resultsLayout.addView(createProbeRow("MASQUE (HTTP/3 - UDP 443)", m3Status))
+                resultsLayout.addView(createProbeRow("MASQUE (HTTP/2 - TCP 443)", m2Status))
+                resultsLayout.addView(createProbeRow("WireGuard / Gool (UDP 2408)", wgStatus))
+            }
+        }.start()
+    }
+
+    private fun createProbeRow(title: String, status: String): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(8), 0, dp(8))
+            addView(label(title, 14f, MUTED))
+            addView(label(status, 16f, INK, TypefaceStyle.MEDIUM).apply {
+                setPadding(0, dp(2), 0, 0)
+            })
+        }
+    }
+
+    private fun probeTcp(host: String, port: Int): String {
+        val start = System.currentTimeMillis()
+        return try {
+            val socket = java.net.Socket()
+            socket.connect(java.net.InetSocketAddress(host, port), 2000)
+            socket.close()
+            val delay = System.currentTimeMillis() - start
+            "Connected 🟢 (${delay}ms)"
+        } catch (e: Exception) {
+            "Blocked 🔴 (TCP Reset / Timeout)"
+        }
+    }
+
+    private fun probeUdp(host: String, port: Int): String {
+        val start = System.currentTimeMillis()
+        return try {
+            val socket = java.net.DatagramSocket()
+            socket.soTimeout = 2000
+            val address = java.net.InetAddress.getByName(host)
+            val data = ByteArray(4)
+            val packet = java.net.DatagramPacket(data, data.size, address, port)
+            socket.send(packet)
+            socket.close()
+            val delay = System.currentTimeMillis() - start
+            "Open 🟢 (${delay}ms)"
+        } catch (e: Exception) {
+            "Blocked 🔴"
+        }
     }
 }
 
