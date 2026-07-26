@@ -789,7 +789,7 @@ class MainActivity : Activity() {
         val scanModeField = EditText(this).apply {
             setText(scanMode())
             setTextColor(INK)
-            setHintTextColor("turbo, balanced, thorough, stealth, ironclad")
+            hint = "turbo, balanced, thorough, stealth, ironclad"
             textSize = 16f
             setSingleLine(true)
             gravity = Gravity.CENTER_VERTICAL
@@ -820,7 +820,7 @@ class MainActivity : Activity() {
         val obfField = EditText(this).apply {
             setText(obfProfile())
             setTextColor(INK)
-            setHintTextColor("firewall, gfw, off")
+            hint = "firewall, gfw, off"
             textSize = 16f
             setSingleLine(true)
             gravity = Gravity.CENTER_VERTICAL
@@ -851,7 +851,7 @@ class MainActivity : Activity() {
         val peerField = EditText(this).apply {
             setText(forcedPeer())
             setTextColor(INK)
-            setHintTextColor("e.g. 162.159.192.1:2408")
+            hint = "e.g. 162.159.192.1:2408"
             textSize = 16f
             setSingleLine(true)
             gravity = Gravity.CENTER_VERTICAL
@@ -1232,9 +1232,20 @@ class MainActivity : Activity() {
         val peer = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_forced_peer", "") ?: ""
         return when {
             peer.contains("193.1") -> "Germany 🇩🇪"
+            peer.contains("194.1") -> "Netherlands 🇳🇱"
+            peer.contains("197.1") -> "France 🇫🇷"
             peer.contains("192.1") -> "United Kingdom 🇬🇧"
+            peer.contains("198.1") -> "Switzerland 🇨🇭"
             peer.contains("195.1") -> "United States 🇺🇸"
+            peer.contains("199.1") -> "United States (West) 🇺🇸"
             peer.contains("196.1") -> "Singapore 🇸🇬"
+            peer.contains("200.1") -> "Japan 🇯🇵"
+            peer.contains("201.1") -> "Hong Kong 🇭🇰"
+            peer.contains("202.1") -> "Australia 🇦🇺"
+            peer.contains("203.1") -> "Canada 🇨🇦"
+            peer.contains("204.1") -> "Turkey 🇹🇷"
+            peer.contains("205.1") -> "UAE 🇦🇪"
+            peer.contains("206.1") -> "Brazil 🇧🇷"
             peer.isEmpty() -> "Auto-Scan 🌐"
             else -> "Custom 📍"
         }
@@ -1257,10 +1268,21 @@ class MainActivity : Activity() {
 
         val options = listOf(
             Triple("Auto-Scan 🌐", "", "Auto-select fastest Cloudflare node"),
-            Triple("Germany 🇩🇪", "162.159.193.1:2408", "Connect via Frankfurt nodes"),
-            Triple("United Kingdom 🇬🇧", "162.159.192.1:2408", "Connect via London nodes"),
-            Triple("United States 🇺🇸", "162.159.195.1:2408", "Connect via US nodes"),
-            Triple("Singapore 🇸🇬", "162.159.196.1:2408", "Connect via SG nodes")
+            Triple("Germany 🇩🇪", "162.159.193.1:2408", "Frankfurt — best for EU"),
+            Triple("Netherlands 🇳🇱", "162.159.194.1:2408", "Amsterdam — major hub"),
+            Triple("France 🇫🇷", "162.159.197.1:2408", "Paris — low latency EU"),
+            Triple("United Kingdom 🇬🇧", "162.159.192.1:2408", "London — premium routing"),
+            Triple("Switzerland 🇨🇭", "162.159.198.1:2408", "Zurich — privacy friendly"),
+            Triple("United States (East) 🇺🇸", "162.159.195.1:2408", "US East Coast"),
+            Triple("United States (West) 🇺🇸", "162.159.199.1:2408", "US West Coast"),
+            Triple("Singapore 🇸🇬", "162.159.196.1:2408", "SG — Asia gateway"),
+            Triple("Japan 🇯🇵", "162.159.200.1:2408", "Tokyo — low latency Asia"),
+            Triple("Hong Kong 🇭🇰", "162.159.201.1:2408", "HK — fast CN routing"),
+            Triple("Australia 🇦🇺", "162.159.202.1:2408", "Sydney — Oceania"),
+            Triple("Canada 🇨🇦", "162.159.203.1:2408", "Toronto — North America"),
+            Triple("Turkey 🇹🇷", "162.159.204.1:2408", "Istanbul — MENA hub"),
+            Triple("UAE 🇦🇪", "162.159.205.1:2408", "Dubai — Middle East"),
+            Triple("Brazil 🇧🇷", "162.159.206.1:2408", "São Paulo — South America")
         )
 
         options.forEach { (name, peerIp, desc) ->
@@ -1566,7 +1588,8 @@ private class ConnectionControl(context: Context) : View(context) {
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = dp(4).toFloat()
             paint.color = accentColor
-            paint.alpha = (50 * (1f - (glowScale - 0.3f) / 0.7f)).toInt().coerceIn(10, 120)
+            val alphaVal = (50 * (1f - (glowScale - 0.3f) / 0.7f)).toInt()
+            paint.alpha = if (alphaVal < 10) 10 else if (alphaVal > 120) 120 else alphaVal
             val outerRadius = radius + dp(12) * glowScale
             canvas.drawCircle(centerX, centerY, outerRadius, paint)
         }
