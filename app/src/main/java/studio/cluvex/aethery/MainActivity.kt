@@ -43,6 +43,8 @@ class MainActivity : Activity() {
     private lateinit var connectionDetail: TextView
     private lateinit var modeSelector: LinearLayout
     private lateinit var modeValue: TextView
+    private lateinit var locationSelector: LinearLayout
+    private lateinit var locationValue: TextView
     private lateinit var logSelector: LinearLayout
     private lateinit var scannerSelector: LinearLayout
     private lateinit var scanValue: TextView
@@ -78,6 +80,7 @@ class MainActivity : Activity() {
         selectedProtocol = defaultProtocol()
         modeValue = label(selectedProtocol.label, 16f, INK, TypefaceStyle.MEDIUM)
         modeSelector = createModeSelector()
+        locationSelector = createLocationSelector()
         logSelector = createLogSelector()
         scanValue = label(defaultScan().label, 14f, INK, TypefaceStyle.MEDIUM)
         scannerSelector = createScannerSelector()
@@ -123,6 +126,7 @@ class MainActivity : Activity() {
             ))
         }
         setContentView(pageHost)
+        handleDeepLink(intent)
     }
 
     override fun onStart() {
@@ -196,6 +200,10 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             dp(64),
         ).apply { topMargin = dp(32) })
+        addView(locationSelector, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(64),
+        ).apply { topMargin = dp(12) })
         val diagnostics = LinearLayout(this@MainActivity).apply {
             gravity = Gravity.CENTER_VERTICAL
             orientation = LinearLayout.HORIZONTAL
@@ -1147,6 +1155,138 @@ class MainActivity : Activity() {
     private fun defaultScan(): ScanTarget {
         val name = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString(DEFAULT_SCAN, ScanTarget.IPV4.coreName)
         return ScanTarget.entries.firstOrNull { it.coreName == name } ?: ScanTarget.IPV4
+    }
+
+    private fun handleDeepLink(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme == "aether") {
+            try {
+                val prefs = getSharedPreferences(SETTINGS, MODE_PRIVATE)
+                val editor = prefs.edit()
+
+                val configBase64 = uri.getQueryParameter("config")
+                if (configBase64 != null) {
+                    val decoded = String(android.util.Base64.decode(configBase64, android.util.Base64.DEFAULT))
+                    val json = org.json.JSONObject(decoded)
+                    if (json.has("protocol")) {
+                        val proto = json.getString("protocol")
+                        editor.putString(DEFAULT_PROTOCOL, proto)
+                        Protocol.entries.firstOrNull { it.coreName == proto }?.let { selectedProtocol = it }
+                    }
+                    if (json.has("mtu")) editor.putString("pref_mtu_str", json.getString("mtu"))
+                    if (json.has("dns")) editor.putString("pref_dns_str", json.getString("dns"))
+                    if (json.has("scan_mode")) editor.putString("pref_scan_mode", json.getString("scan_mode"))
+                    if (json.has("obf")) editor.putString("pref_obf_profile", json.getString("obf"))
+                    if (json.has("forced_peer")) editor.putString("pref_forced_peer", json.getString("forced_peer"))
+                } else {
+                    uri.getQueryParameter("protocol")?.let { proto ->
+                        editor.putString(DEFAULT_PROTOCOL, proto)
+                        Protocol.entries.firstOrNull { it.coreName == proto }?.let { selectedProtocol = it }
+                    }
+                    uri.getQueryParameter("mtu")?.let { editor.putString("pref_mtu_str", it) }
+                    uri.getQueryParameter("dns")?.let { editor.putString("pref_dns_str", it) }
+                    uri.getQueryParameter("scan")?.let { editor.putString("pref_scan_mode", it) }
+                    uri.getQueryParameter("obf")?.let { editor.putString("pref_obf_profile", it) }
+                    uri.getQueryParameter("forced_peer")?.let { editor.putString("pref_forced_peer", it) }
+                }
+                editor.apply()
+
+                // Update UI values
+                modeValue.text = selectedProtocol.label
+                locationValue.text = locationLabel()
+                scanValue.text = defaultScan().label
+                
+                ConnectionLog.record("Imported config via deep link: aether://")
+                showDisconnected("Config imported! Click connect")
+            } catch (e: Exception) {
+                ConnectionLog.record("Failed to parse config link: " + e.message)
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleDeepLink(intent)
+    }
+
+    private fun createLocationSelector(): LinearLayout = LinearLayout(this).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(dp(20), 0, dp(18), 0)
+        background = roundedBackground(SURFACE_VARIANT, 20, DIVIDER)
+        contentDescription = "Select Location, ${locationLabel()}"
+        isClickable = true
+        isFocusable = true
+        setOnClickListener { showLocationSheet() }
+
+        addView(label("LOCATION", 12f, MUTED).apply { letterSpacing = 0.1f })
+        locationValue = label(locationLabel(), 16f, INK, TypefaceStyle.MEDIUM)
+        addView(locationValue, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+            leftMargin = dp(16)
+        })
+        addView(ChevronView(this@MainActivity, MUTED), LinearLayout.LayoutParams(dp(24), dp(24)))
+    }
+
+    private fun locationLabel(): String {
+        val peer = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_forced_peer", "") ?: ""
+        return when {
+            peer.contains("193.1") -> "Germany 🇩🇪"
+            peer.contains("192.1") -> "United Kingdom 🇬🇧"
+            peer.contains("195.1") -> "United States 🇺🇸"
+            peer.contains("196.1") -> "Singapore 🇸🇬"
+            peer.isEmpty() -> "Auto-Scan 🌐"
+            else -> "Custom 📍"
+        }
+    }
+
+    private fun showLocationSheet() {
+        val dialog = Dialog(this).apply {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            setCanceledOnTouchOutside(true)
+        }
+        val sheet = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            background = roundedBackground(SURFACE, 28, SURFACE)
+        }
+        sheet.addView(label("Select Location", 22f, INK, TypefaceStyle.MEDIUM))
+        sheet.addView(label("Lock connection to specific regional Anycast gateway", 14f, MUTED).apply {
+            setPadding(0, dp(4), 0, dp(16))
+        })
+
+        val options = listOf(
+            Triple("Auto-Scan 🌐", "", "Auto-select fastest Cloudflare node"),
+            Triple("Germany 🇩🇪", "162.159.193.1:2408", "Connect via Frankfurt nodes"),
+            Triple("United Kingdom 🇬🇧", "162.159.192.1:2408", "Connect via London nodes"),
+            Triple("United States 🇺🇸", "162.159.195.1:2408", "Connect via US nodes"),
+            Triple("Singapore 🇸🇬", "162.159.196.1:2408", "Connect via SG nodes")
+        )
+
+        options.forEach { (name, peerIp, desc) ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                isClickable = true
+                isFocusable = true
+                background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
+                setOnClickListener {
+                    getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_forced_peer", peerIp).apply()
+                    locationValue.text = name
+                    locationSelector.contentDescription = "Select Location, $name"
+                    dialog.dismiss()
+                }
+            }
+            row.addView(label(name, 16f, INK, TypefaceStyle.MEDIUM))
+            row.addView(label(desc, 12f, MUTED).apply { setPadding(0, dp(2), 0, 0) })
+            sheet.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(8)
+            })
+        }
+
+        dialog.setContentView(sheet)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
     }
 
     private fun socksPort(): Int = getSharedPreferences(SETTINGS, MODE_PRIVATE)
