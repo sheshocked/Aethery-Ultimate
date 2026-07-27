@@ -132,10 +132,10 @@ class MainActivity : Activity() {
             prefs.edit()
                 .putString("pref_selected_loc_id", "nl-ams")
                 .putString("pref_forced_peer", "81.19.208.80:51820")
-                .putString(DEFAULT_PROTOCOL, Protocol.WireGuard.coreName)
+                .putString(DEFAULT_PROTOCOL, Protocol.WIREGUARD.coreName)
                 .apply()
-            selectedProtocol = Protocol.WireGuard
-            modeValue.text = Protocol.WireGuard.label
+            selectedProtocol = Protocol.WIREGUARD
+            modeValue.text = Protocol.WIREGUARD.label
         }
         handleDeepLink(intent)
     }

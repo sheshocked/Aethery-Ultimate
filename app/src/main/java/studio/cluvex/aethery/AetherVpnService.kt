@@ -92,7 +92,6 @@ class AetherVpnService : VpnService() {
                 ConnectionLog.record("Preparing ${config.substringAfter("\"protocol\":\"").substringBefore('\"').uppercase()} identity")
                 val addresses = NativeCore.prepare(config)
                 ConnectionLog.record("Creating Android VPN interface")
-                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
                 val mtuStr = prefs.getString("pref_mtu_str", "auto") ?: "auto"
                 val dnsStr = prefs.getString("pref_dns_str", "auto") ?: "auto"
                 val bypassApps = prefs.getString("pref_bypass_apps", "") ?: ""
