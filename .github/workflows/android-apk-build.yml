@@ -82,17 +82,26 @@ jobs:
 
       - name: Sign APKs with Debug Keystore
         run: |
-          # Debug keystore is pre-installed at ~/.android/debug.keystore
-          # Password: android, Alias: androiddebugkey
+          # Find apksigner in Android SDK
+          APKSIGNER=$(find /usr/local/lib/android/sdk/build-tools -name "apksigner" | head -1)
+          if [ -z "$APKSIGNER" ]; then
+            APKSIGNER=$(find /opt/android/sdk/build-tools -name "apksigner" | head -1)
+          fi
+          if [ -z "$APKSIGNER" ]; then
+            echo "apksigner not found!"
+            exit 1
+          fi
+          echo "Found apksigner at: $APKSIGNER"
+          
           mkdir -p dist
           for apk in app/build/outputs/apk/release/*.apk; do
             if [ -f "$apk" ]; then
               filename=$(basename "$apk" .apk)
               signed_name="${filename}-signed.apk"
               echo "Signing $apk -> $signed_name"
-              apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android --out "dist/$signed_name" "$apk"
+              "$APKSIGNER" sign --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android --out "dist/$signed_name" "$apk"
               # Verify
-              apksigner verify "dist/$signed_name"
+              "$APKSIGNER" verify "dist/$signed_name"
             fi
           done
           ls -la dist/
