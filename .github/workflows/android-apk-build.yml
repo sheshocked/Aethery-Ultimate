@@ -80,12 +80,21 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease
 
-      - name: Rename and Prepare APKs
+      - name: Sign APKs with Debug Keystore
         run: |
+          # Debug keystore is pre-installed at ~/.android/debug.keystore
+          # Password: android, Alias: androiddebugkey
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-arm64-v8a-release-unsigned.apk dist/Aethery-arm64-v8a-release.apk 2>/dev/null || cp app/build/outputs/apk/release/app-release-unsigned.apk dist/Aethery-release.apk 2>/dev/null || cp app/build/outputs/apk/release/*.apk dist/ || true
-          # Find all apk files and copy them
-          find app/build/outputs/apk/ -name "*.apk" -exec cp {} dist/ \;
+          for apk in app/build/outputs/apk/release/*.apk; do
+            if [ -f "$apk" ]; then
+              filename=$(basename "$apk" .apk)
+              signed_name="${filename}-signed.apk"
+              echo "Signing $apk -> $signed_name"
+              apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android --out "dist/$signed_name" "$apk"
+              # Verify
+              apksigner verify "dist/$signed_name"
+            fi
+          done
           ls -la dist/
 
       - name: Generate Checksums
