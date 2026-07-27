@@ -1059,9 +1059,9 @@ class MainActivity : Activity() {
     }
 
     private fun toggleTunnel() {
-        if (NativeCore.isRunning()) {
+        if (NativeCore.isRunning() || visualState == ConnectionControl.State.CONNECTING || visualState == ConnectionControl.State.CONNECTED) {
             startService(Intent(this, AetherVpnService::class.java).setAction(AetherVpnService.ACTION_DISCONNECT))
-            showDisconnected("Disconnecting")
+            showDisconnected("Stopped")
             return
         }
 
@@ -1436,36 +1436,55 @@ class MainActivity : Activity() {
 
         Thread {
             val candidates = listOf(
-                "162.159.193.1", "162.159.192.1", "162.159.195.1", "162.159.196.1", "162.159.198.1",
-                "188.114.96.1", "188.114.97.1", "188.114.98.1", "188.114.99.1", "104.16.1.1",
-                "104.17.1.1", "104.18.1.1", "172.64.1.1", "172.67.1.1", "104.21.1.1"
+                "162.159.192.1", "162.159.192.2", "162.159.192.3", "162.159.192.4", "162.159.192.5",
+                "162.159.193.1", "162.159.193.2", "162.159.193.3", "162.159.193.4", "162.159.193.5",
+                "162.159.195.1", "162.159.195.2", "162.159.195.3", "162.159.195.4", "162.159.195.5",
+                "162.159.196.1", "162.159.196.2", "162.159.196.3", "162.159.196.4", "162.159.196.5",
+                "162.159.204.1", "162.159.204.2", "162.159.204.3", "162.159.204.4", "162.159.204.5",
+                "188.114.96.1", "188.114.96.2", "188.114.96.3", "188.114.96.4", "188.114.96.5",
+                "188.114.97.1", "188.114.97.2", "188.114.97.3", "188.114.97.4", "188.114.97.5",
+                "188.114.98.1", "188.114.98.2", "188.114.98.3", "188.114.98.4", "188.114.98.5",
+                "188.114.99.1", "188.114.99.2", "188.114.99.3", "188.114.99.4", "188.114.99.5"
             )
-            var bestIp = ""
-            var bestPing = 9999L
+            val executor = java.util.concurrent.Executors.newFixedThreadPool(15)
+            val results = java.util.Collections.synchronizedList(mutableListOf<Pair<String, Long>>())
+            val completedCount = java.util.concurrent.atomic.AtomicInteger(0)
+            val total = candidates.size
             val port = 443
 
-            candidates.forEachIndexed { index, ip ->
-                Handler(Looper.getMainLooper()).post {
-                    statusText.text = "Testing $ip (${index + 1}/${candidates.size})..."
-                }
-                val start = System.currentTimeMillis()
-                try {
-                    val socket = java.net.Socket()
-                    socket.connect(java.net.InetSocketAddress(ip, port), 800)
-                    socket.close()
-                    val delay = System.currentTimeMillis() - start
-                    if (delay < bestPing) {
-                        bestPing = delay
-                        bestIp = ip
+            candidates.forEach { ip ->
+                executor.execute {
+                    val start = System.currentTimeMillis()
+                    try {
+                        val socket = java.net.Socket()
+                        socket.connect(java.net.InetSocketAddress(ip, port), 800)
+                        socket.close()
+                        val delay = System.currentTimeMillis() - start
+                        results.add(Pair(ip, delay))
+                    } catch (e: Exception) {
+                        // blocked
+                    } finally {
+                        val count = completedCount.incrementAndGet()
+                        Handler(Looper.getMainLooper()).post {
+                            statusText.text = "Scanning candidate IPs ($count/$total)..."
+                        }
                     }
-                } catch (e: Exception) {
-                    // blocked
                 }
+            }
+
+            executor.shutdown()
+            try {
+                executor.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS)
+            } catch (e: Exception) {
+                // timeout
             }
 
             Handler(Looper.getMainLooper()).post {
                 dialog.dismiss()
-                if (bestIp.isNotEmpty()) {
+                val sorted = results.sortedBy { it.second }
+                if (sorted.isNotEmpty()) {
+                    val bestIp = sorted[0].first
+                    val bestPing = sorted[0].second
                     val peerSetting = "$bestIp:$port"
                     getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_forced_peer", peerSetting).apply()
                     locationValue.text = "Custom 📍"
