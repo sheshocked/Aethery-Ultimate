@@ -1,0 +1,1 @@
+Client VPN WireGuard & AmneziaWG con tunnel automatico, lockdown e proxy.

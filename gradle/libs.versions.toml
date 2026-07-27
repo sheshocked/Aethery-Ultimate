@@ -1,0 +1,216 @@
+[versions]
+accompanist = "0.37.3"
+activityCompose = "1.13.0"
+androidx-junit = "1.3.0"
+icmp4a = "1.0.0"
+ipaddress = "5.6.2"
+koinBom = "4.2.2"
+kotlinxCoroutinesAndroid = "1.11.0"
+leakcanaryAndroid = "3.0-alpha-9"
+lottieCompose = "6.7.1"
+orbitCompose = "12.0.0"
+roomdatabasebackup = "1.1.0"
+shizuku = "13.1.5"
+appcompat = "1.7.1"
+coreKtx = "1.19.0"
+datastorePreferences = "1.2.1"
+desugar_jdk_libs = "2.1.5"
+espressoCore = "3.7.0"
+navigation3 = "1.1.4"
+junit = "4.13.2"
+kotlinx-serialization-json = "1.11.0"
+ktorClientCore = "3.5.1"
+lifecycle-runtime-compose = "2.11.0"
+material3 = "1.5.0-alpha23"
+pinLockCompose = "1.0.5"
+qrose = "1.1.2"
+roomVersion = "2.8.4"
+semver4j = "3.1.0"
+slf4jAndroid = "1.7.36"
+timber = "5.0.1"
+androidGradlePlugin = "9.3.1"
+kotlin = "2.4.10"
+ksp = "2.3.10"
+composeBom = "2026.06.01"
+compose = "1.11.4"
+icons = "1.7.8"
+workRuntimeKtxVersion = "2.11.2"
+quickieFoss = "1.19.0"
+coreSplashscreen = "1.2.0"
+gradlePlugins-grgit = "5.3.3"
+reorderable = "3.1.0"
+material = "1.14.0"
+storage = "1.6.0"
+ktfmt = "0.26.0"
+licensee = "1.14.1"
+lifecycleViewmodelNavigation3 = "2.11.0"
+parser = "1.1.1"
+relinker = "1.4.5"
+libsu = "6.0.0"
+sonner = "0.4.0"
+aboutlibraries = "15.0.4"
+
+[bundles]
+# Core AndroidX foundations
+androidx-core-full = ["androidx-core", "androidx-core-ktx"]
+
+# Lifecycle components (merged non-compose ones for common usage)
+androidx-lifecycle-core = ["androidx-lifecycle-runtime-ktx", "androidx-lifecycle-service", "androidx-lifecycle-process"]
+
+# Compose UI essentials
+androidx-compose-ui = ["androidx-compose-ui", "androidx-compose-ui-graphics", "androidx-compose-ui-tooling-preview"]
+androidx-compose-material = ["androidx-material3", "androidx-compose-animation-graphics"]
+
+# Material and icons
+google-material = ["material"]
+material-icons = ["material-icons-core", "material-icons-extended"]
+
+# Navigation and related
+androidx-navigation3 = ["androidx-navigation3-runtime", "androidx-navigation3-ui"]
+navigation-lifecycle = ["androidx-lifecycle-viewmodel-navigation3"]
+
+# Accompanist utilities
+accompanist = ["accompanist-permissions", "accompanist-drawablepainter"]
+
+# Room and database
+androidx-room = ["androidx-room-runtime", "androidx-room-ktx"]
+androidx-datastore = ["androidx-datastore-preferences"]
+
+androidx-work = ["androidx-work-runtime"]
+
+# Ktor networking
+ktor-client = ["ktor-client-core", "ktor-client-okhttp", "ktor-client-cio", "ktor-client-content-negotiation", "ktor-serialization-kotlinx-json"]
+
+# Serialization
+kotlinx-serialization = ["kotlinx-serialization-json"]
+
+# State management
+orbit-mvi = ["orbit-compose", "orbit-viewmodel", "orbit-core"]
+
+# Shizuku
+shizuku = ["shizuku-api", "shizuku-provider"]
+
+# UI utilities
+ui-utilities = ["pin-lock-compose", "qrose", "reorderable", "quickie-foss", "androidx-core-splashscreen"]
+
+# Misc utilities
+misc-utilities = ["semver4j", "icmp4a", "slf4j-android", "timber"]
+
+# Appcompat and storage
+androidx-appcompat = ["androidx-appcompat"]
+androidx-storage = ["androidx-storage"]
+
+[libraries]
+# accompanist
+accompanist-drawablepainter = { module = "com.google.accompanist:accompanist-drawablepainter", version.ref = "accompanist" }
+accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanist" }
+
+# core
+androidx-core = { module = "androidx.core:core", version.ref = "coreKtx" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+
+# db
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomVersion" }
+androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "roomVersion" }
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomVersion" }
+androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "roomVersion" }
+androidx-storage = { group = "androidx.test.services", name = "storage", version.ref = "storage" }
+
+# ui
+androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+androidx-compose-ui-test = { module = "androidx.compose.ui:ui-test-junit4", version.ref = "compose" }
+androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling", version.ref = "compose" }
+androidx-compose-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "compose" }
+androidx-compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics", version.ref = "compose" }
+androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "compose" }
+androidx-compose-ui = { module = "androidx.compose.ui:ui", version.ref = "compose" }
+androidx-compose-animation-graphics = { module = "androidx.compose.animation:animation-graphics", version.ref = "compose" }
+icmp4a = { module = "com.marsounjan:icmp4a", version.ref = "icmp4a" }
+ipaddress = { module = "com.github.seancfoley:ipaddress", version.ref = "ipaddress" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
+leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanaryAndroid" }
+lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottieCompose" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espressoCore" }
+androidx-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-junit" }
+androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "coreSplashscreen" }
+androidx-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
+androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "navigation3" }
+androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
+sonner = { module = "io.github.dokar3:sonner", version.ref = "sonner" }
+
+# lifecycle
+androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle-runtime-compose" }
+androidx-lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycle-runtime-compose" }
+androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle-runtime-compose" }
+lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle-runtime-compose" }
+androidx-lifecycle-viewmodel-navigation3 = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-navigation3", version.ref = "lifecycleViewmodelNavigation3" }
+
+# di
+koin-android = { module = "io.insert-koin:koin-android" }
+koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose" }
+koin-androidx-navigation = { module = "io.insert-koin:koin-androidx-navigation" }
+koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel" }
+koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koinBom" }
+koin-core = { module = "io.insert-koin:koin-core" }
+koin-lazy = { module = "io.insert-koin:koin-core-coroutines" }
+koin-worker = { module = "io.insert-koin:koin-androidx-workmanager" }
+androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtxVersion" }
+
+# testing
+junit = { module = "junit:junit", version.ref = "junit" }
+
+# serialization
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization-json" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktorClientCore" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktorClientCore" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktorClientCore" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktorClientCore" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktorClientCore" }
+
+# icons
+material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "icons" }
+material-icons-core = { module = "androidx.compose.material:material-icons-core", version.ref = "icons" }
+
+# state
+orbit-compose = { module = "org.orbit-mvi:orbit-compose", version.ref = "orbitCompose" }
+orbit-core = { module = "org.orbit-mvi:orbit-core", version.ref = "orbitCompose" }
+orbit-viewmodel = { module = "org.orbit-mvi:orbit-viewmodel", version.ref = "orbitCompose" }
+
+# misc
+pin-lock-compose = { module = "com.zaneschepke:pin_lock_compose", version.ref = "pinLockCompose" }
+roomdatabasebackup = { module = "de.raphaelebner:roomdatabasebackup", version.ref = "roomdatabasebackup" }
+qrose = { module = "io.github.alexzhirkevich:qrose", version.ref = "qrose" }
+semver4j = { module = "com.vdurmont:semver4j", version.ref = "semver4j" }
+slf4j-android = { module = "org.slf4j:slf4j-android", version.ref = "slf4jAndroid" }
+timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
+quickie-foss = { module = "com.github.T8RIN.QuickieExtended:quickie-foss", version.ref = "quickieFoss" }
+desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
+reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
+
+# tunnel
+amneziawg-parser = { module = "com.zaneschepke.wireguardautotunnel:amneziawg-parser", version.ref = "parser" }
+
+# shizuku
+shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
+shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
+
+relinker = { module = "com.getkeepsafe.relinker:relinker", version.ref = "relinker" }
+libsu = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsu" }
+
+aboutlibraries-compose = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibraries" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kotlinxSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+androidLibrary = { id = "com.android.library", version.ref = "androidGradlePlugin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+grgit = { id = "org.ajoberstar.grgit.service", version.ref = "gradlePlugins-grgit" }
+ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
+licensee = { id = "app.cash.licensee", version.ref = "licensee" }
+jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutlibraries" }

@@ -19,98 +19,25 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          distribution: 'temurin'
+          java-version: '21'
+          cache: gradle
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android, armv7-linux-androideabi
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.22"
-
-      - name: Install CMake and Ninja
-        uses: lukka/get-cmake@latest
-
-      - name: Install Android NDK
-        id: ndk
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26d
-
-      - name: Install cargo-ndk
-        run: cargo install cargo-ndk --locked
-
-      - name: Build Rust Core (arm64-v8a)
-        env:
-          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
-          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
-          RUSTFLAGS: "-C link-arg=-Wl,-soname,libaether.so -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
+      - name: Build Standalone Release APKs
         run: |
-          cd core/aether
-          cargo ndk -t arm64-v8a --platform 24 build --release --lib
+          ./gradlew :app:assembleStandaloneRelease --info
 
-      - name: Build Rust Core (armeabi-v7a)
-        env:
-          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
-          ANDROID_NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
-          RUSTFLAGS: "-C link-arg=-Wl,-soname,libaether.so -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
+      - name: Prepare and Rename APKs
         run: |
-          cd core/aether
-          cargo ndk -t armeabi-v7a --platform 24 build --release --lib
-
-      - name: Copy libaether.so to jniLibs
-        run: |
-          mkdir -p app/src/main/jniLibs/arm64-v8a
-          cp core/aether/target/aarch64-linux-android/release/libaether.so app/src/main/jniLibs/arm64-v8a/libaether.so
-          mkdir -p app/src/main/jniLibs/armeabi-v7a
-          cp core/aether/target/armv7-linux-androideabi/release/libaether.so app/src/main/jniLibs/armeabi-v7a/libaether.so
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Build Release APKs
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleRelease
-
-      - name: Create Debug Keystore and Sign APKs
-        run: |
-          # Create debug keystore if not exists
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            echo "Creating debug.keystore..."
-            keytool -genkey -v -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
-          fi
-          
-          # Find apksigner
-          APKSIGNER=$(find /usr/local/lib/android/sdk/build-tools -name "apksigner" | head -1)
-          if [ -z "$APKSIGNER" ]; then
-            APKSIGNER=$(find /opt/android/sdk/build-tools -name "apksigner" | head -1)
-          fi
-          if [ -z "$APKSIGNER" ]; then
-            echo "apksigner not found!"
-            exit 1
-          fi
-          echo "Found apksigner at: $APKSIGNER"
-          
           mkdir -p dist
-          for apk in app/build/outputs/apk/release/*.apk; do
-            if [ -f "$apk" ]; then
-              filename=$(basename "$apk" .apk)
-              signed_name="${filename}-signed.apk"
-              echo "Signing $apk -> $signed_name"
-              "$APKSIGNER" sign --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android --out "dist/$signed_name" "$apk"
-              # Verify
-              "$APKSIGNER" verify "dist/$signed_name"
-            fi
-          done
+          # Copy compiled standalone release APKs into dist folder
+          find app/build/outputs/apk/standalone/release/ -name "*.apk" -exec cp {} dist/ \;
           ls -la dist/
 
       - name: Generate Checksums

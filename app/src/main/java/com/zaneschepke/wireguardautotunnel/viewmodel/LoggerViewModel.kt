@@ -1,0 +1,132 @@
+package com.zaneschepke.wireguardautotunnel.viewmodel
+
+import android.net.Uri
+import androidx.lifecycle.ViewModel
+import com.dokar.sonner.ToastType
+import com.zaneschepke.logcatter.LogReader
+import com.zaneschepke.wireguardautotunnel.BuildConfig
+import com.zaneschepke.wireguardautotunnel.R
+import com.zaneschepke.wireguardautotunnel.domain.repository.GlobalEffectRepository
+import com.zaneschepke.wireguardautotunnel.domain.sideeffect.GlobalSideEffect
+import com.zaneschepke.wireguardautotunnel.ui.state.LoggerUiState
+import com.zaneschepke.wireguardautotunnel.util.Constants
+import com.zaneschepke.wireguardautotunnel.util.FileUtils
+import com.zaneschepke.wireguardautotunnel.util.StringValue
+import com.zaneschepke.wireguardautotunnel.util.extensions.toUserFriendlyTimestamp
+import java.time.Instant
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import org.orbitmvi.orbit.OrbitContainerHost
+import org.orbitmvi.orbit.viewmodel.orbitContainer
+import timber.log.Timber
+
+class LoggerViewModel(
+    private val logReader: LogReader,
+    private val fileUtils: FileUtils,
+    private val globalEffectRepository: GlobalEffectRepository,
+) : OrbitContainerHost<LoggerUiState, LoggerUiState, Nothing>, ViewModel() {
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override val container =
+        orbitContainer<LoggerUiState, Nothing>(
+            LoggerUiState(),
+            buildSettings = { repeatOnSubscribedStopTimeout = 5000L },
+        ) {
+            intent {
+                logReader.bufferedLogs.collect { logMessage ->
+                    reduce {
+                        state.copy(
+                            messages =
+                                state.messages.toMutableList().apply {
+                                    if (size >= MAX_LOG_SIZE) removeAt(0)
+                                    add(logMessage)
+                                },
+                            isLoading = false,
+                        )
+                    }
+                }
+            }
+            intent {
+                delay(300.milliseconds)
+                if (state.isLoading) {
+                    reduce { state.copy(isLoading = false) }
+                }
+            }
+        }
+
+    suspend fun postSideEffect(globalSideEffect: GlobalSideEffect) {
+        globalEffectRepository.post(globalSideEffect)
+    }
+
+    fun exportLogs(uri: Uri?) = intent {
+        if (uri == null) {
+            postSideEffect(
+                GlobalSideEffect.Snackbar(
+                    StringValue.StringResource(R.string.export_unsupported),
+                    ToastType.Warning,
+                )
+            )
+            return@intent
+        }
+
+        val timestamp = Instant.now().toUserFriendlyTimestamp()
+        val result =
+            fileUtils.createNewShareFile(
+                "${Constants.BASE_LOG_FILE_NAME}_${timestamp}_${BuildConfig.VERSION_NAME}_${BuildConfig.FLAVOR}.zip"
+            )
+
+        val onFailure = { action: Throwable ->
+            Timber.e(action)
+            intent {
+                postSideEffect(
+                    GlobalSideEffect.Snackbar(
+                        StringValue.StringResource(
+                            R.string.export_failed,
+                            ": ${action.localizedMessage}",
+                        ),
+                        ToastType.Error,
+                    )
+                )
+            }
+            Unit
+        }
+
+        result.fold(
+            onSuccess = { file ->
+                try {
+                    logReader.zipLogFiles(file.absolutePath)
+                    fileUtils
+                        .exportFile(file, uri, FileUtils.ZIP_FILE_MIME_TYPE)
+                        .onFailure(onFailure)
+                        .onSuccess {
+                            postSideEffect(
+                                GlobalSideEffect.Snackbar(
+                                    StringValue.StringResource(R.string.log_export_success),
+                                    ToastType.Success,
+                                )
+                            )
+                        }
+                } finally {
+                    if (file.exists()) file.delete()
+                }
+            },
+            onFailure = onFailure,
+        )
+    }
+
+    fun deleteLogs() = intent {
+        reduce { state.copy(messages = emptyList()) }
+        logReader.deleteAndClearLogs()
+        postSideEffect(
+            GlobalSideEffect.Snackbar(
+                StringValue.StringResource(R.string.stored_logs_deleted),
+                ToastType.Success,
+            )
+        )
+    }
+
+    companion object {
+        const val MAX_LOG_SIZE = 10_000L
+    }
+}
