@@ -80,9 +80,16 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease
 
-      - name: Sign APKs with Debug Keystore
+      - name: Create Debug Keystore and Sign APKs
         run: |
-          # Find apksigner in Android SDK
+          # Create debug keystore if not exists
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            echo "Creating debug.keystore..."
+            keytool -genkey -v -keystore ~/.android/debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          
+          # Find apksigner
           APKSIGNER=$(find /usr/local/lib/android/sdk/build-tools -name "apksigner" | head -1)
           if [ -z "$APKSIGNER" ]; then
             APKSIGNER=$(find /opt/android/sdk/build-tools -name "apksigner" | head -1)
