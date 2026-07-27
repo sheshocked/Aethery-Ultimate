@@ -315,8 +315,11 @@ class MainActivity : Activity() {
         val refreshHandler = Handler(Looper.getMainLooper())
         val refresh = object : Runnable {
             override fun run() {
-                events.text = connectionLogText()
-                scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+                val newText = connectionLogText()
+                if (events.text.toString() != newText) {
+                    events.text = newText
+                    scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+                }
                 if (dialog.isShowing) refreshHandler.postDelayed(this, LOG_REFRESH_MS)
             }
         }
