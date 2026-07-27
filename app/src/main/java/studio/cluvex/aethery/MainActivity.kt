@@ -33,6 +33,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import java.io.File
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -204,21 +205,11 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             dp(64),
         ).apply { topMargin = dp(12) })
-        val diagnostics = LinearLayout(this@MainActivity).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            orientation = LinearLayout.HORIZONTAL
-            addView(logSelector, LinearLayout.LayoutParams(
-                0,
-                dp(56),
-                0.42f,
-            ))
-            addView(scannerSelector, LinearLayout.LayoutParams(
-                0,
-                dp(56),
-                0.58f,
-            ).apply { leftMargin = dp(10) })
-        }
-        addView(diagnostics, LinearLayout.LayoutParams(
+        addView(logSelector, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(56),
+        ).apply { topMargin = dp(12) })
+        addView(scannerSelector, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             dp(56),
         ).apply { topMargin = dp(12) })
@@ -874,6 +865,40 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply { topMargin = dp(6) })
 
+        // --- 9. IMPORT / PASTE CUSTOM CONFIG ---
+        content.addView(label("IMPORT CONFIG (JSON OR AETHER:// LINK)", 12f, MUTED).apply { letterSpacing = 0.1f }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(28) })
+        val importField = EditText(this).apply {
+            hint = "Paste custom JSON config or aether:// URL here"
+            setHintTextColor(MUTED)
+            setTextColor(INK)
+            textSize = 14f
+            background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+            minLines = 3
+            gravity = Gravity.TOP or Gravity.START
+        }
+        content.addView(importField, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(10) })
+        content.addView(createSettingsButton("Import and Apply") {
+            val text = importField.text.toString().trim()
+            if (importConfig(text)) {
+                importField.setText("")
+                importField.clearFocus()
+                Toast.makeText(this, "Config imported successfully!", Toast.LENGTH_SHORT).show()
+                openSettingsScreen(animate = false) // refresh settings page
+            } else {
+                importField.error = "Invalid JSON or aether:// link"
+            }
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(52),
+        ).apply { topMargin = dp(10) })
+
         scrollView.addView(content)
         page.addView(scrollView, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1157,13 +1182,35 @@ class MainActivity : Activity() {
         return ScanTarget.entries.firstOrNull { it.coreName == name } ?: ScanTarget.IPV4
     }
 
-    private fun handleDeepLink(intent: Intent?) {
-        val uri = intent?.data ?: return
-        if (uri.scheme == "aether") {
-            try {
-                val prefs = getSharedPreferences(SETTINGS, MODE_PRIVATE)
-                val editor = prefs.edit()
-
+    private fun importConfig(rawConfig: String): Boolean {
+        val trimmed = rawConfig.trim()
+        if (trimmed.isEmpty()) return false
+        val prefs = getSharedPreferences(SETTINGS, MODE_PRIVATE)
+        val editor = prefs.edit()
+        try {
+            if (trimmed.startsWith("{")) {
+                val json = org.json.JSONObject(trimmed)
+                if (json.has("protocol")) {
+                    val proto = json.getString("protocol")
+                    editor.putString(DEFAULT_PROTOCOL, proto)
+                    Protocol.entries.firstOrNull { it.coreName == proto }?.let { selectedProtocol = it }
+                }
+                if (json.has("mtu")) editor.putString("pref_mtu_str", json.getString("mtu"))
+                if (json.has("dns")) editor.putString("pref_dns_str", json.getString("dns"))
+                if (json.has("scan_mode")) editor.putString("pref_scan_mode", json.getString("scan_mode"))
+                if (json.has("obfuscation_profile")) editor.putString("pref_obf_profile", json.getString("obfuscation_profile"))
+                if (json.has("forced_peer")) editor.putString("pref_forced_peer", json.getString("forced_peer"))
+                if (json.has("bypass_apps")) editor.putString("pref_bypass_apps", json.getString("bypass_apps"))
+                editor.apply()
+                
+                // Update UI values immediately if they exist
+                modeValue.text = selectedProtocol.label
+                locationValue.text = locationLabel()
+                scanValue.text = defaultScan().label
+                return true
+            } else if (trimmed.startsWith("aether://") || trimmed.contains("protocol=")) {
+                val cleanUrl = if (!trimmed.startsWith("aether://")) "aether://connect?" + trimmed else trimmed
+                val uri = android.net.Uri.parse(cleanUrl)
                 val configBase64 = uri.getQueryParameter("config")
                 if (configBase64 != null) {
                     val decoded = String(android.util.Base64.decode(configBase64, android.util.Base64.DEFAULT))
@@ -1190,16 +1237,27 @@ class MainActivity : Activity() {
                     uri.getQueryParameter("forced_peer")?.let { editor.putString("pref_forced_peer", it) }
                 }
                 editor.apply()
-
-                // Update UI values
+                
+                // Update UI values immediately
                 modeValue.text = selectedProtocol.label
                 locationValue.text = locationLabel()
                 scanValue.text = defaultScan().label
-                
+                return true
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Aethery", "Failed to parse imported config", e)
+        }
+        return false
+    }
+
+    private fun handleDeepLink(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme == "aether") {
+            if (importConfig(uri.toString())) {
                 ConnectionLog.record("Imported config via deep link: aether://")
                 showDisconnected("Config imported! Click connect")
-            } catch (e: Exception) {
-                ConnectionLog.record("Failed to parse config link: " + e.message)
+            } else {
+                ConnectionLog.record("Failed to parse config link: " + uri.toString())
             }
         }
     }
@@ -1285,6 +1343,10 @@ class MainActivity : Activity() {
             Triple("Brazil 🇧🇷", "162.159.206.1:2408", "São Paulo — South America")
         )
 
+        val optionsLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
         options.forEach { (name, peerIp, desc) ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -1301,10 +1363,19 @@ class MainActivity : Activity() {
             }
             row.addView(label(name, 16f, INK, TypefaceStyle.MEDIUM))
             row.addView(label(desc, 12f, MUTED).apply { setPadding(0, dp(2), 0, 0) })
-            sheet.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            optionsLayout.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = dp(8)
             })
         }
+
+        val optionsScrollView = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            addView(optionsLayout)
+        }
+        sheet.addView(optionsScrollView, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(400) // limit height to 400dp to ensure title remains visible and scroll works cleanly
+        ))
 
         dialog.setContentView(sheet)
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
