@@ -127,6 +127,16 @@ class MainActivity : Activity() {
             ))
         }
         setContentView(pageHost)
+        val prefs = getSharedPreferences(SETTINGS, MODE_PRIVATE)
+        if (prefs.getString("pref_selected_loc_id", "").isNullOrEmpty()) {
+            prefs.edit()
+                .putString("pref_selected_loc_id", "nl-ams")
+                .putString("pref_forced_peer", "81.19.208.80:51820")
+                .putString(DEFAULT_PROTOCOL, Protocol.WireGuard.coreName)
+                .apply()
+            selectedProtocol = Protocol.WireGuard
+            modeValue.text = Protocol.WireGuard.label
+        }
         handleDeepLink(intent)
     }
 
@@ -908,7 +918,7 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.WRAP_CONTENT,
         ).apply { topMargin = dp(32) })
 
-        content.addView(createSettingsButton("🔍 Auto-Scan Clean Cloudflare IP") {
+        content.addView(createSettingsButton("🔍 Auto-Scan Best Surfshark Server") {
             scanCleanCloudflareIps()
         }, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1316,26 +1326,31 @@ class MainActivity : Activity() {
         addView(ChevronView(this@MainActivity, MUTED), LinearLayout.LayoutParams(dp(24), dp(24)))
     }
 
+    private fun loadSurfsharkLocations(): List<org.json.JSONObject> {
+        val list = mutableListOf<org.json.JSONObject>()
+        try {
+            val jsonString = assets.open("locations.json").bufferedReader().use { it.readText() }
+            val array = org.json.JSONArray(jsonString)
+            for (i in 0 until array.length()) {
+                list.add(array.getJSONObject(i))
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("Aethery", "Error loading locations", e)
+        }
+        return list
+    }
+
     private fun locationLabel(): String {
         val peer = getSharedPreferences(SETTINGS, MODE_PRIVATE).getString("pref_forced_peer", "") ?: ""
-        return when {
-            peer.contains("193.1") -> "Germany 🇩🇪"
-            peer.contains("194.1") -> "Netherlands 🇳🇱"
-            peer.contains("197.1") -> "France 🇫🇷"
-            peer.contains("192.1") -> "United Kingdom 🇬🇧"
-            peer.contains("198.1") -> "Switzerland 🇨🇭"
-            peer.contains("195.1") -> "United States 🇺🇸"
-            peer.contains("199.1") -> "United States (West) 🇺🇸"
-            peer.contains("196.1") -> "Singapore 🇸🇬"
-            peer.contains("200.1") -> "Japan 🇯🇵"
-            peer.contains("201.1") -> "Hong Kong 🇭🇰"
-            peer.contains("202.1") -> "Australia 🇦🇺"
-            peer.contains("203.1") -> "Canada 🇨🇦"
-            peer.contains("204.1") -> "Turkey 🇹🇷"
-            peer.contains("205.1") -> "UAE 🇦🇪"
-            peer.contains("206.1") -> "Brazil 🇧🇷"
-            peer.isEmpty() -> "Auto-Scan 🌐"
-            else -> "Custom 📍"
+        if (peer.isEmpty()) return "Select Surfshark Location 🌐"
+        val cleanPeer = peer.substringBefore(':')
+        val locations = loadSurfsharkLocations()
+        val match = locations.firstOrNull { it.getString("resolved_ip") == cleanPeer || it.getString("domain") == cleanPeer }
+        return if (match != null) {
+            val id = match.getString("id").uppercase()
+            "$id 📍"
+        } else {
+            "Custom 📍"
         }
     }
 
@@ -1349,35 +1364,23 @@ class MainActivity : Activity() {
             setPadding(dp(24), dp(24), dp(24), dp(24))
             background = roundedBackground(SURFACE, 28, SURFACE)
         }
-        sheet.addView(label("Select Location", 22f, INK, TypefaceStyle.MEDIUM))
-        sheet.addView(label("Lock connection to specific regional Anycast gateway", 14f, MUTED).apply {
+        sheet.addView(label("Select Surfshark Location", 22f, INK, TypefaceStyle.MEDIUM))
+        sheet.addView(label("Select your desired Surfshark VPN country", 14f, MUTED).apply {
             setPadding(0, dp(4), 0, dp(16))
         })
-
-        val options = listOf(
-            Triple("Auto-Scan 🌐", "", "Auto-select fastest Cloudflare node"),
-            Triple("Germany 🇩🇪", "162.159.193.1:2408", "Frankfurt — best for EU"),
-            Triple("Netherlands 🇳🇱", "162.159.194.1:2408", "Amsterdam — major hub"),
-            Triple("France 🇫🇷", "162.159.197.1:2408", "Paris — low latency EU"),
-            Triple("United Kingdom 🇬🇧", "162.159.192.1:2408", "London — premium routing"),
-            Triple("Switzerland 🇨🇭", "162.159.198.1:2408", "Zurich — privacy friendly"),
-            Triple("United States (East) 🇺🇸", "162.159.195.1:2408", "US East Coast"),
-            Triple("United States (West) 🇺🇸", "162.159.199.1:2408", "US West Coast"),
-            Triple("Singapore 🇸🇬", "162.159.196.1:2408", "SG — Asia gateway"),
-            Triple("Japan 🇯🇵", "162.159.200.1:2408", "Tokyo — low latency Asia"),
-            Triple("Hong Kong 🇭🇰", "162.159.201.1:2408", "HK — fast CN routing"),
-            Triple("Australia 🇦🇺", "162.159.202.1:2408", "Sydney — Oceania"),
-            Triple("Canada 🇨🇦", "162.159.203.1:2408", "Toronto — North America"),
-            Triple("Turkey 🇹🇷", "162.159.204.1:2408", "Istanbul — MENA hub"),
-            Triple("UAE 🇦🇪", "162.159.205.1:2408", "Dubai — Middle East"),
-            Triple("Brazil 🇧🇷", "162.159.206.1:2408", "São Paulo — South America")
-        )
 
         val optionsLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
 
-        options.forEach { (name, peerIp, desc) ->
+        val locations = loadSurfsharkLocations()
+
+        locations.forEach { loc ->
+            val id = loc.getString("id").uppercase()
+            val ip = loc.getString("resolved_ip")
+            val port = loc.getInt("port")
+            val domain = loc.getString("domain")
+            
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(16), dp(12), dp(16), dp(12))
@@ -1385,14 +1388,17 @@ class MainActivity : Activity() {
                 isFocusable = true
                 background = roundedBackground(SURFACE_VARIANT, 16, SURFACE_VARIANT)
                 setOnClickListener {
-                    getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_forced_peer", peerIp).apply()
-                    locationValue.text = name
-                    locationSelector.contentDescription = "Select Location, $name"
+                    getSharedPreferences(SETTINGS, MODE_PRIVATE).edit()
+                        .putString("pref_forced_peer", "$ip:$port")
+                        .putString("pref_selected_loc_id", loc.getString("id"))
+                        .apply()
+                    locationValue.text = "$id 📍"
+                    locationSelector.contentDescription = "Select Location, $id"
                     dialog.dismiss()
                 }
             }
-            row.addView(label(name, 16f, INK, TypefaceStyle.MEDIUM))
-            row.addView(label(desc, 12f, MUTED).apply { setPadding(0, dp(2), 0, 0) })
+            row.addView(label(id, 16f, INK, TypefaceStyle.MEDIUM))
+            row.addView(label("$domain -> $ip", 12f, MUTED).apply { setPadding(0, dp(2), 0, 0) })
             optionsLayout.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = dp(8)
             })
@@ -1404,7 +1410,7 @@ class MainActivity : Activity() {
         }
         sheet.addView(optionsScrollView, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(400) // limit height to 400dp to ensure title remains visible and scroll works cleanly
+            dp(400)
         ))
 
         dialog.setContentView(sheet)
@@ -1425,8 +1431,8 @@ class MainActivity : Activity() {
             setPadding(dp(24), dp(24), dp(24), dp(24))
             background = roundedBackground(SURFACE, 28, SURFACE)
         }
-        layout.addView(label("Cloudflare IP Scanner", 20f, INK, TypefaceStyle.MEDIUM))
-        val statusText = label("Scanning Cloudflare Anycast candidates...", 14f, MUTED).apply {
+        layout.addView(label("Surfshark Server Scanner", 20f, INK, TypefaceStyle.MEDIUM))
+        val statusText = label("Scanning Surfshark nodes in parallel...", 14f, MUTED).apply {
             setPadding(0, dp(8), 0, dp(16))
         }
         layout.addView(statusText)
@@ -1435,38 +1441,38 @@ class MainActivity : Activity() {
         dialog.show()
 
         Thread {
-            val candidates = listOf(
-                "162.159.192.1", "162.159.192.2", "162.159.192.3", "162.159.192.4", "162.159.192.5",
-                "162.159.193.1", "162.159.193.2", "162.159.193.3", "162.159.193.4", "162.159.193.5",
-                "162.159.195.1", "162.159.195.2", "162.159.195.3", "162.159.195.4", "162.159.195.5",
-                "162.159.196.1", "162.159.196.2", "162.159.196.3", "162.159.196.4", "162.159.196.5",
-                "162.159.204.1", "162.159.204.2", "162.159.204.3", "162.159.204.4", "162.159.204.5",
-                "188.114.96.1", "188.114.96.2", "188.114.96.3", "188.114.96.4", "188.114.96.5",
-                "188.114.97.1", "188.114.97.2", "188.114.97.3", "188.114.97.4", "188.114.97.5",
-                "188.114.98.1", "188.114.98.2", "188.114.98.3", "188.114.98.4", "188.114.98.5",
-                "188.114.99.1", "188.114.99.2", "188.114.99.3", "188.114.99.4", "188.114.99.5"
-            )
+            val locations = loadSurfsharkLocations()
             val executor = java.util.concurrent.Executors.newFixedThreadPool(15)
-            val results = java.util.Collections.synchronizedList(mutableListOf<Pair<String, Long>>())
+            val results = java.util.Collections.synchronizedList(mutableListOf<Pair<org.json.JSONObject, Long>>())
             val completedCount = java.util.concurrent.atomic.AtomicInteger(0)
-            val total = candidates.size
-            val port = 443
+            val total = locations.size
 
-            candidates.forEach { ip ->
+            locations.forEach { loc ->
                 executor.execute {
+                    val ip = loc.getString("resolved_ip")
+                    val port = loc.getInt("port")
                     val start = System.currentTimeMillis()
                     try {
                         val socket = java.net.Socket()
                         socket.connect(java.net.InetSocketAddress(ip, port), 800)
                         socket.close()
                         val delay = System.currentTimeMillis() - start
-                        results.add(Pair(ip, delay))
+                        results.add(Pair(loc, delay))
                     } catch (e: Exception) {
-                        // blocked
+                        try {
+                            val ds = java.net.DatagramSocket()
+                            ds.soTimeout = 800
+                            val addr = java.net.InetAddress.getByName(ip)
+                            val p = java.net.DatagramPacket(ByteArray(4), 4, addr, port)
+                            ds.send(p)
+                            ds.close()
+                            val delay = System.currentTimeMillis() - start
+                            results.add(Pair(loc, delay))
+                        } catch (ex: Exception) {}
                     } finally {
                         val count = completedCount.incrementAndGet()
                         Handler(Looper.getMainLooper()).post {
-                            statusText.text = "Scanning candidate IPs ($count/$total)..."
+                            statusText.text = "Scanning Surfshark nodes ($count/$total)..."
                         }
                     }
                 }
@@ -1474,24 +1480,29 @@ class MainActivity : Activity() {
 
             executor.shutdown()
             try {
-                executor.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS)
-            } catch (e: Exception) {
-                // timeout
-            }
+                executor.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS)
+            } catch (e: Exception) {}
 
             Handler(Looper.getMainLooper()).post {
                 dialog.dismiss()
                 val sorted = results.sortedBy { it.second }
                 if (sorted.isNotEmpty()) {
-                    val bestIp = sorted[0].first
+                    val bestLoc = sorted[0].first
                     val bestPing = sorted[0].second
-                    val peerSetting = "$bestIp:$port"
-                    getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_forced_peer", peerSetting).apply()
-                    locationValue.text = "Custom 📍"
-                    Toast.makeText(this@MainActivity, "Optimal IP set: $peerSetting (${bestPing}ms)", Toast.LENGTH_LONG).show()
+                    val bestIp = bestLoc.getString("resolved_ip")
+                    val port = bestLoc.getInt("port")
+                    val bestId = bestLoc.getString("id").uppercase()
+                    
+                    getSharedPreferences(SETTINGS, MODE_PRIVATE).edit()
+                        .putString("pref_forced_peer", "$bestIp:$port")
+                        .putString("pref_selected_loc_id", bestLoc.getString("id"))
+                        .apply()
+                    locationValue.text = "$bestId 📍"
+                    locationSelector.contentDescription = "Select Location, $bestId"
+                    Toast.makeText(this@MainActivity, "Fastest server set: $bestId ($bestPing ms)", Toast.LENGTH_LONG).show()
                     openSettingsScreen(animate = false)
                 } else {
-                    Toast.makeText(this@MainActivity, "Scanner failed to find any open IP. GFW blocks detected.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, "Scanner failed to find any working server. Check your network connection.", Toast.LENGTH_LONG).show()
                 }
             }
         }.start()

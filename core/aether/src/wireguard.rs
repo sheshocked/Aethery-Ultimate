@@ -21,9 +21,25 @@ fn inject_client_id(pkt: &mut [u8], client_id: &[u8; 3]) {
     if pkt.len() < 4 {
         return;
     }
-    if pkt[0] < WG_MSG_TYPE_MIN || pkt[0] > WG_MSG_TYPE_MAX {
+    
+    // AmneziaWG magic header bytes (H1=32, H2=33, H3=34, H4=35)
+    let h1 = 32;
+    let h2 = 33;
+    let h3 = 34;
+    let h4 = 35;
+    
+    if pkt[0] == 1 {
+        pkt[0] = h1;
+    } else if pkt[0] == 2 {
+        pkt[0] = h2;
+    } else if pkt[0] == 3 {
+        pkt[0] = h3;
+    } else if pkt[0] == 4 {
+        pkt[0] = h4;
+    } else {
         return;
     }
+    
     pkt[1..4].copy_from_slice(client_id);
 }
 
@@ -31,9 +47,25 @@ fn strip_client_id(pkt: &mut [u8]) {
     if pkt.len() < 4 {
         return;
     }
-    if pkt[0] < WG_MSG_TYPE_MIN || pkt[0] > WG_MSG_TYPE_MAX {
+    
+    // AmneziaWG magic header bytes (H1=32, H2=33, H3=34, H4=35)
+    let h1 = 32;
+    let h2 = 33;
+    let h3 = 34;
+    let h4 = 35;
+    
+    if pkt[0] == h1 {
+        pkt[0] = 1;
+    } else if pkt[0] == h2 {
+        pkt[0] = 2;
+    } else if pkt[0] == h3 {
+        pkt[0] = 3;
+    } else if pkt[0] == h4 {
+        pkt[0] = 4;
+    } else {
         return;
     }
+    
     pkt[1..4].copy_from_slice(&[0u8; 3]);
 }
 

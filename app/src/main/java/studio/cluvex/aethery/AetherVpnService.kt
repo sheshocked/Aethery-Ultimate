@@ -51,6 +51,44 @@ class AetherVpnService : VpnService() {
         sendStatus(STATUS_CONNECTING)
         worker.execute {
             try {
+                val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+                val selectedLocId = prefs.getString("pref_selected_loc_id", "") ?: ""
+                if (selectedLocId.isNotEmpty()) {
+                    try {
+                        val jsonString = assets.open("locations.json").bufferedReader().use { it.readText() }
+                        val array = org.json.JSONArray(jsonString)
+                        var match: org.json.JSONObject? = null
+                        for (i in 0 until array.length()) {
+                            val item = array.getJSONObject(i)
+                            if (item.getString("id") == selectedLocId) {
+                                                                match = item
+                                                                break
+                                                            }
+                                                        }
+                                                        if (match != null) {
+                                                            val privateKey = match.getString("private_key")
+                                                            val publicKey = match.getString("public_key")
+                                                            val address = match.getString("address").substringBefore('/')
+                                                            
+                                                            val toml = "device_id = \"surfshark\"\n" +
+                                                                       "access_token = \"surfshark\"\n" +
+                                                                       "cert_pem = \"\"\n" +
+                                                                       "key_pem = \"\"\n" +
+                                                                       "ipv4 = \"" + address + "\"\n" +
+                                                                       "ipv6 = \"fd00::2\"\n" +
+                                                                       "wg_private_key = \"" + privateKey + "\"\n" +
+                                                                       "wg_peer_public_key = \"" + publicKey + "\"\n" +
+                                                                       "client_id = \"AAAA\"\n"
+                                                            
+                                                            val tomlFile = java.io.File(filesDir, "aether.toml")
+                                                            tomlFile.writeText(toml)
+                                                            ConnectionLog.record("Loaded Surfshark peer: " + match.getString("id").uppercase())
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        Log.e("AetheryVpn", "Failed to write aether.toml from locations.json", e)
+                                                    }
+                                                }
+
                 ConnectionLog.record("Preparing ${config.substringAfter("\"protocol\":\"").substringBefore('\"').uppercase()} identity")
                 val addresses = NativeCore.prepare(config)
                 ConnectionLog.record("Creating Android VPN interface")
