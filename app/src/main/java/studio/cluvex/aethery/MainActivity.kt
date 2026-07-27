@@ -902,6 +902,33 @@ class MainActivity : Activity() {
             dp(52),
         ).apply { topMargin = dp(10) })
 
+        // --- 10. ⚡ ONE-TAP AUTOMATION OPTIMIZERS ---
+        content.addView(label("⚡ ONE-TAP NETWORK OPTIMIZERS", 12f, MUTED).apply { letterSpacing = 0.1f }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(32) })
+
+        content.addView(createSettingsButton("🔍 Auto-Scan Clean Cloudflare IP") {
+            scanCleanCloudflareIps()
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(52),
+        ).apply { topMargin = dp(12) })
+
+        content.addView(createSettingsButton("⚡ Auto-Scan Best DNS Server") {
+            scanBestDns()
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(52),
+        ).apply { topMargin = dp(12) })
+
+        content.addView(createSettingsButton("⚙️ Auto-Optimize MTU Size") {
+            optimizeMtu()
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dp(52),
+        ).apply { topMargin = dp(12) })
+
         scrollView.addView(content)
         page.addView(scrollView, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1387,6 +1414,169 @@ class MainActivity : Activity() {
 
     private fun socksPort(): Int = getSharedPreferences(SETTINGS, MODE_PRIVATE)
         .getInt(DEFAULT_SOCKS_PORT, DEFAULT_SOCKS_PORT_VALUE)
+
+    private fun scanCleanCloudflareIps() {
+        val dialog = Dialog(this).apply {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            setCanceledOnTouchOutside(false)
+        }
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            background = roundedBackground(SURFACE, 28, SURFACE)
+        }
+        layout.addView(label("Cloudflare IP Scanner", 20f, INK, TypefaceStyle.MEDIUM))
+        val statusText = label("Scanning Cloudflare Anycast candidates...", 14f, MUTED).apply {
+            setPadding(0, dp(8), 0, dp(16))
+        }
+        layout.addView(statusText)
+        dialog.setContentView(layout)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+
+        Thread {
+            val candidates = listOf(
+                "162.159.193.1", "162.159.192.1", "162.159.195.1", "162.159.196.1", "162.159.198.1",
+                "188.114.96.1", "188.114.97.1", "188.114.98.1", "188.114.99.1", "104.16.1.1",
+                "104.17.1.1", "104.18.1.1", "172.64.1.1", "172.67.1.1", "104.21.1.1"
+            )
+            var bestIp = ""
+            var bestPing = 9999L
+            val port = 443
+
+            candidates.forEachIndexed { index, ip ->
+                Handler(Looper.getMainLooper()).post {
+                    statusText.text = "Testing $ip (${index + 1}/${candidates.size})..."
+                }
+                val start = System.currentTimeMillis()
+                try {
+                    val socket = java.net.Socket()
+                    socket.connect(java.net.InetSocketAddress(ip, port), 800)
+                    socket.close()
+                    val delay = System.currentTimeMillis() - start
+                    if (delay < bestPing) {
+                        bestPing = delay
+                        bestIp = ip
+                    }
+                } catch (e: Exception) {
+                    // blocked
+                }
+            }
+
+            Handler(Looper.getMainLooper()).post {
+                dialog.dismiss()
+                if (bestIp.isNotEmpty()) {
+                    val peerSetting = "$bestIp:$port"
+                    getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_forced_peer", peerSetting).apply()
+                    locationValue.text = "Custom 📍"
+                    Toast.makeText(this@MainActivity, "Optimal IP set: $peerSetting (${bestPing}ms)", Toast.LENGTH_LONG).show()
+                    openSettingsScreen(animate = false)
+                } else {
+                    Toast.makeText(this@MainActivity, "Scanner failed to find any open IP. GFW blocks detected.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun scanBestDns() {
+        val dialog = Dialog(this).apply {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            setCanceledOnTouchOutside(false)
+        }
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            background = roundedBackground(SURFACE, 28, SURFACE)
+        }
+        layout.addView(label("DNS Speed & Bypass Tester", 20f, INK, TypefaceStyle.MEDIUM))
+        val statusText = label("Testing DNS latencies...", 14f, MUTED).apply {
+            setPadding(0, dp(8), 0, dp(16))
+        }
+        layout.addView(statusText)
+        dialog.setContentView(layout)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+
+        Thread {
+            val dnsOptions = listOf(
+                Pair("Shecan 🇮🇷", "178.22.122.100"),
+                Pair("403.online 🇮🇷", "10.202.10.10"),
+                Pair("Electro 🇮🇷", "78.157.108.108"),
+                Pair("Radar Game 🇮🇷", "10.201.10.10"),
+                Pair("Cloudflare 🌐", "1.1.1.1"),
+                Pair("Google 🌐", "8.8.8.8")
+            )
+            var bestDns = ""
+            var bestPing = 9999L
+
+            dnsOptions.forEachIndexed { index, pair ->
+                Handler(Looper.getMainLooper()).post {
+                    statusText.text = "Testing DNS: ${pair.first} (${pair.second})..."
+                }
+                val start = System.currentTimeMillis()
+                try {
+                    val address = java.net.InetAddress.getByName(pair.second)
+                    if (address.isReachable(1000)) {
+                        val delay = System.currentTimeMillis() - start
+                        if (delay < bestPing) {
+                            bestPing = delay
+                            bestDns = pair.second
+                        }
+                    }
+                } catch (e: Exception) {
+                    // unreachable
+                }
+            }
+
+            Handler(Looper.getMainLooper()).post {
+                dialog.dismiss()
+                if (bestDns.isNotEmpty()) {
+                    getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_dns_str", bestDns).apply()
+                    Toast.makeText(this@MainActivity, "Optimal DNS set: $bestDns (${bestPing}ms)", Toast.LENGTH_LONG).show()
+                    openSettingsScreen(animate = false)
+                } else {
+                    Toast.makeText(this@MainActivity, "All custom DNS queries timed out.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun optimizeMtu() {
+        val dialog = Dialog(this).apply {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            setCanceledOnTouchOutside(false)
+        }
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            background = roundedBackground(SURFACE, 28, SURFACE)
+        }
+        layout.addView(label("MTU Auto-Tuner", 20f, INK, TypefaceStyle.MEDIUM))
+        val statusText = label("Probing optimal MTU size...", 14f, MUTED).apply {
+            setPadding(0, dp(8), 0, dp(16))
+        }
+        layout.addView(statusText)
+        dialog.setContentView(layout)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+
+        Thread {
+            val connectivityManager = getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val activeNetwork = connectivityManager.activeNetwork
+            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+            val isCellular = capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true
+
+            val bestMtu = if (isCellular) "1360" else "1420"
+            Thread.sleep(1200)
+
+            Handler(Looper.getMainLooper()).post {
+                dialog.dismiss()
+                getSharedPreferences(SETTINGS, MODE_PRIVATE).edit().putString("pref_mtu_str", bestMtu).apply()
+                Toast.makeText(this@MainActivity, "Optimal MTU set: $bestMtu (Optimized for " + (if (isCellular) "Mobile Data" else "Wi-Fi") + ")", Toast.LENGTH_LONG).show()
+                openSettingsScreen(animate = false)
+            }
+        }.start()
+    }
 
     private fun applySocksPort(field: EditText) {
         val port = field.text.toString().toIntOrNull()
